@@ -1,0 +1,42 @@
+#!/bin/bash
+# Bootstraps the app instance: Docker + Compose + the .env from SSM.
+# The app code is copied up separately (see deploy/README.md), then you run
+# docker compose. We don't auto-start here because the source isn't on the box
+# until you rsync it.
+set -euxo pipefail
+
+dnf update -y
+dnf install -y docker
+systemctl enable --now docker
+usermod -aG docker ec2-user
+
+# Docker Compose v2 plugin
+DOCKER_CONFIG=/usr/local/lib/docker
+mkdir -p "$DOCKER_CONFIG/cli-plugins"
+curl -SL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 \
+  -o "$DOCKER_CONFIG/cli-plugins/docker-compose"
+chmod +x "$DOCKER_CONFIG/cli-plugins/docker-compose"
+
+# App directory + the production .env pulled from SSM SecureString.
+mkdir -p /opt/commerce
+aws ssm get-parameter \
+  --name "${ssm_dotenv}" \
+  --with-decryption \
+  --region "${region}" \
+  --query 'Parameter.Value' \
+  --output text > /opt/commerce/.env
+chmod 600 /opt/commerce/.env
+chown -R ec2-user:ec2-user /opt/commerce
+
+cat > /opt/commerce/DEPLOY_NEXT_STEPS.txt <<'EOF'
+This instance is ready. From your laptop (in the project root), run:
+
+  rsync -av ./backend ec2-user@<THIS_EIP>:/opt/commerce/backend
+  scp deploy/docker-compose.prod.yml deploy/Caddyfile ec2-user@<THIS_EIP>:/opt/commerce/
+
+Then SSH in and launch:
+
+  cd /opt/commerce && docker compose -f docker-compose.prod.yml up -d --build
+
+The .env (with all secrets) is already at /opt/commerce/.env — do not commit it.
+EOF

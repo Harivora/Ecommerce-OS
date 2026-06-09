@@ -1,0 +1,50 @@
+# Production stack for the EC2 box. Postgres + Redis are MANAGED (RDS +
+# ElastiCache) — only the app services + Caddy (TLS) run here. All config comes
+# from /opt/commerce/.env (pulled from SSM at boot). Build context is ./backend,
+# which you rsync to /opt/commerce/backend.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    env_file: ./.env # provides DOMAIN + ACME_EMAIL used by the Caddyfile
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./.env
+    # Run migrations against RDS, then serve.
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    expose:
+      - "8000"
+
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./.env
+    command: celery -A app.tasks.celery_app.celery_app worker --loglevel=info
+    depends_on:
+      - api
+
+  beat:
+    build: ./backend
+    restart: unless-stopped
+    env_file: ./.env
+    command: celery -A app.tasks.celery_app.celery_app beat --loglevel=info
+    depends_on:
+      - api
+
+volumes:
+  caddy_data:
+  caddy_config:

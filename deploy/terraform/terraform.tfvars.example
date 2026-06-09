@@ -1,0 +1,32 @@
+# Copy to terraform.tfvars and fill in. NEVER commit terraform.tfvars
+# (it holds secrets). Generate the two keys with the commands shown.
+
+aws_region = "ap-south-1"
+
+# Your laptop's public IP, /32. Find it: https://whatismyipaddress.com
+ssh_ingress_cidr = "203.0.113.10/32"
+
+# Contents of your public key file, e.g. cat ~/.ssh/id_ed25519.pub
+ssh_public_key = "ssh-ed25519 AAAA...your-key... you@laptop"
+
+# DNS you control — Caddy will get a Let's Encrypt cert for this.
+domain_name     = "api.yourdomain.com"
+frontend_origin = "https://app.yourdomain.com"
+acme_email      = "you@yourdomain.com"
+
+# Secrets — generate fresh:
+#   python -c "import secrets; print(secrets.token_urlsafe(48))"
+jwt_secret = "PASTE_GENERATED_JWT_SECRET"
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+encryption_key = "PASTE_GENERATED_FERNET_KEY"
+
+superadmin_email    = "you@yourdomain.com"
+superadmin_password = "a-strong-password"
+
+# Optional global Claude key (per-org keys entered in the UI take precedence):
+anthropic_api_key = ""
+
+# Sizing (defaults are fine to start):
+# ec2_instance_type = "t3.small"
+# db_instance_class = "db.t4g.micro"
+# redis_node_type   = "cache.t4g.micro"

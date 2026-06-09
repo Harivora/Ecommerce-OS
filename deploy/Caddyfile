@@ -1,0 +1,9 @@
+# Auto-HTTPS reverse proxy. DOMAIN + ACME_EMAIL come from /opt/commerce/.env.
+# Caddy obtains and renews a Let's Encrypt cert automatically, as long as the
+# DNS A record for $DOMAIN points at this instance and ports 80/443 are open.
+
+{$DOMAIN} {
+	encode gzip
+	tls {$ACME_EMAIL}
+	reverse_proxy api:8000
+}

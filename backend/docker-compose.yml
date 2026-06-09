@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: commerce
+      POSTGRES_PASSWORD: commerce
+      POSTGRES_DB: commerce
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U commerce"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    env_file: .env
+    # Run migrations, then start the API.
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # NAS mount point for backups/exports (Operations).
+      - nasdata:/data
+
+  worker:
+    build: .
+    env_file: .env
+    command: celery -A app.tasks.celery_app.celery_app worker --loglevel=info
+    depends_on:
+      - api
+      - redis
+      - postgres
+    volumes:
+      - nasdata:/data
+
+  beat:
+    build: .
+    env_file: .env
+    command: celery -A app.tasks.celery_app.celery_app beat --loglevel=info
+    depends_on:
+      - api
+      - redis
+      - postgres
+
+volumes:
+  pgdata:
+  nasdata:

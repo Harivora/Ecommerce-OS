@@ -1,0 +1,64 @@
+# ============================================================
+# Secrets — NEVER commit these
+# ============================================================
+.env
+.env.*
+!.env.example
+!.env.production.example
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Terraform secrets + state
+deploy/terraform/terraform.tfvars
+*.tfvars
+!*.tfvars.example
+*.tfstate
+*.tfstate.*
+**/.terraform/
+.terraform.lock.hcl
+
+# SSH / private keys
+*.pem
+*_key
+*_key.pub
+id_rsa*
+id_ed25519*
+
+# ============================================================
+# Databases (contain real customer PII — do not push)
+# ============================================================
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================================
+# Python
+# ============================================================
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# ============================================================
+# Node / Next.js
+# ============================================================
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+out/
+*.tsbuildinfo
+.vercel
+
+# ============================================================
+# Misc
+# ============================================================
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
