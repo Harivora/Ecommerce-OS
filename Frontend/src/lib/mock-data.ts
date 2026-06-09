@@ -575,7 +575,7 @@ export const teamMembers: TeamMember[] = [
 export const pricingPlans: PricingPlan[] = [
   {
     name: "Starter",
-    price: 4999,
+    price: 4599,
     period: "/month",
     description: "Perfect for new D2C brands starting their profit journey.",
     features: [
@@ -591,7 +591,7 @@ export const pricingPlans: PricingPlan[] = [
   },
   {
     name: "Growth",
-    price: 9999,
+    price: 8599,
     period: "/month",
     description: "The sweet spot for growing brands that need robust AI CFO tools.",
     features: [
@@ -609,7 +609,7 @@ export const pricingPlans: PricingPlan[] = [
   },
   {
     name: "Scale",
-    price: 24999,
+    price: 21599,
     period: "/month",
     description: "Complete custom setup, high volumes, and priority AI modules.",
     features: [
