@@ -1,0 +1,14 @@
+# Keep the Docker build context (and shipped code) clean.
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.db
+*.sqlite3
+# Never bake the local dev .env (SQLite + dev secrets) into the image —
+# production config comes from /opt/commerce/.env via compose env_file.
+.env
+.git/
+.mypy_cache/
+.DS_Store

@@ -32,9 +32,6 @@ anthropic==0.42.0
 # ── Backup (SFTP push to customer NAS) ──────────────────────
 paramiko==3.5.0
 
-# ── Rate limiting (auth brute-force protection) ─────────────
-slowapi==0.1.9
-
 # ── Dev / test ──────────────────────────────────────────────
 pytest==8.3.4
 pytest-asyncio==0.25.0

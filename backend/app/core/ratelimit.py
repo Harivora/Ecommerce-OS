@@ -1,36 +1,34 @@
-"""Rate limiting (slowapi) — protects auth endpoints from brute-force / abuse.
+"""Lightweight in-memory rate limiting via a FastAPI dependency.
 
-Degrades gracefully: if slowapi isn't installed yet, a no-op limiter is used so
-the app still boots (rate limiting simply inactive until `pip install slowapi`,
-which is in requirements.txt). In-memory storage suits a single API instance;
-for multiple instances, point slowapi at Redis via ``storage_uri``.
+Implemented as a dependency (not a decorator) so it never interferes with
+FastAPI's request-body parsing. In-memory per process — fine for a single API
+instance; back it with Redis if you scale to multiple instances.
 """
 from __future__ import annotations
 
-import logging
+import time
+from collections import defaultdict
 
-logger = logging.getLogger(__name__)
+from fastapi import HTTPException, Request, status
 
-try:
-    from slowapi import Limiter
-    from slowapi.util import get_remote_address
+# key -> list of recent hit timestamps
+_hits: dict[str, list[float]] = defaultdict(list)
 
-    limiter = Limiter(key_func=get_remote_address, default_limits=[])
-    SLOWAPI_AVAILABLE = True
-except Exception:  # slowapi not installed yet
-    SLOWAPI_AVAILABLE = False
-    logger.warning(
-        "slowapi not installed — auth rate limiting is INACTIVE. "
-        "Run `pip install -r requirements.txt` to enable it."
-    )
 
-    class _NoopLimiter:
-        """Stand-in so ``@limiter.limit(...)`` decorators are harmless no-ops."""
+def rate_limit(max_calls: int, window_seconds: int = 60):
+    """Allow at most ``max_calls`` per ``window_seconds`` per client IP + path."""
 
-        def limit(self, *_args, **_kwargs):
-            def decorator(func):
-                return func
+    async def _checker(request: Request) -> None:
+        ip = request.client.host if request.client else "unknown"
+        key = f"{ip}:{request.url.path}"
+        now = time.time()
+        recent = [t for t in _hits[key] if now - t < window_seconds]
+        if len(recent) >= max_calls:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many requests. Please wait a minute and try again.",
+            )
+        recent.append(now)
+        _hits[key] = recent
 
-            return decorator
-
-    limiter = _NoopLimiter()  # type: ignore[assignment]
+    return _checker

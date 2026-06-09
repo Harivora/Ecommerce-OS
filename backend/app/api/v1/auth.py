@@ -7,7 +7,8 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,8 +16,7 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_auth_context, AuthContext
 from app.core.email import password_reset_link, send_email
-from app.core.ratelimit import limiter
-from fastapi.concurrency import run_in_threadpool
+from app.core.ratelimit import rate_limit
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -58,9 +58,10 @@ def _auth_response(user: User, org: Organization | None) -> AuthResponse:
 
 
 @router.post("/signup", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-@limiter.limit("5/minute")
 async def signup(
-    request: Request, payload: SignupRequest, db: AsyncSession = Depends(get_db)
+    payload: SignupRequest,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit(5)),
 ) -> AuthResponse:
     existing = await db.scalar(select(User).where(User.email == payload.email.lower()))
     if existing:
@@ -85,9 +86,10 @@ async def signup(
 
 
 @router.post("/login", response_model=AuthResponse)
-@limiter.limit("10/minute")
 async def login(
-    request: Request, payload: LoginRequest, db: AsyncSession = Depends(get_db)
+    payload: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit(10)),
 ) -> AuthResponse:
     user = await db.scalar(select(User).where(User.email == payload.email.lower()))
     if user is None or not user.password_hash or not verify_password(
@@ -145,9 +147,10 @@ async def me(
 
 
 @router.post("/forgot-password", response_model=Message)
-@limiter.limit("5/minute")
 async def forgot_password(
-    request: Request, payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)
+    payload: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit(5)),
 ) -> Message:
     user = await db.scalar(select(User).where(User.email == payload.email.lower()))
     # Always respond the same way to avoid email enumeration.
@@ -190,7 +193,9 @@ async def forgot_password(
 
 @router.post("/reset-password", response_model=Message)
 async def reset_password(
-    payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)
+    payload: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(rate_limit(10)),
 ) -> Message:
     token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
     record = await db.scalar(

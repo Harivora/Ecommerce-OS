@@ -12,7 +12,6 @@ from sqlalchemy import select, text
 from app.api.v1 import api_router
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
-from app.core.ratelimit import SLOWAPI_AVAILABLE, limiter
 from app.core.security import hash_password
 from app.models.enums import UserRole, UserStatus
 from app.models.user import User
@@ -72,17 +71,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Rate limiting (brute-force protection on auth endpoints).
-app.state.limiter = limiter
-if SLOWAPI_AVAILABLE:
-    from slowapi import _rate_limit_exceeded_handler
-    from slowapi.errors import RateLimitExceeded
-
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-elif settings.environment.lower() == "production":
-    logger.warning("Rate limiting is INACTIVE in production (slowapi missing).")
-
 
 @app.middleware("http")
 async def _security_headers(request, call_next):
