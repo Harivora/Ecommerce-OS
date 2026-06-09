@@ -100,6 +100,30 @@ export interface CustomerDetailDTO extends CustomerDTO {
   syncedRevenue: number;
 }
 
+export interface AdCampaignDTO {
+  id: string;
+  name: string;
+  platform: string;
+  status: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  revenue: number;
+  roas: number;
+  cpa: number;
+}
+
+export interface TeamMemberDTO {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  avatar?: string | null;
+  lastActive: string | null;
+  status: string;
+}
+
 export const dataApi = {
   // Dashboard
   kpis: () => api.get<{ kpis: KPIData[] }>("/dashboard/kpis"),
@@ -114,4 +138,12 @@ export const dataApi = {
     api.get<CustomerDTO[]>(`/customers?limit=${limit}&offset=${offset}`),
   customerDetail: (id: string) =>
     api.get<CustomerDetailDTO>(`/customers/${encodeURIComponent(id)}`),
+
+  // Ad spend
+  ads: () => api.get<AdCampaignDTO[]>("/ads"),
+
+  // Team
+  team: () => api.get<TeamMemberDTO[]>("/team"),
+  inviteMember: (name: string, email: string, role: string) =>
+    api.post<TeamMemberDTO>("/team", { name, email, role }),
 };

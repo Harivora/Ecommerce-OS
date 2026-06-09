@@ -7,6 +7,7 @@ import * as Icons from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme, Theme } from "@/contexts/ThemeContext";
 import { navigationItems } from "@/lib/mock-data";
+import { integrationsApi, type IntegrationDTO } from "@/lib/integrations-api";
 import FloatingChatWidget from "@/components/FloatingChatWidget";
 import { impersonation } from "@/lib/admin-api";
 
@@ -24,7 +25,7 @@ export default function DashboardLayout({
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [lastSync, setLastSync] = useState("5 mins ago");
+  const [shopify, setShopify] = useState<IntegrationDTO | null>(null);
   const [impersonating, setImpersonating] = useState<string | null>(null);
 
   // Route protection. Super-admins belong in /admin, not the client dashboard
@@ -39,6 +40,13 @@ export default function DashboardLayout({
     }
   }, [user, isLoading, router]);
 
+  useEffect(() => {
+    integrationsApi
+      .list()
+      .then((list) => setShopify(list.find((i) => i.provider === "shopify") ?? null))
+      .catch(() => setShopify(null));
+  }, []);
+
   if (isLoading || !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -50,11 +58,23 @@ export default function DashboardLayout({
     );
   }
 
+  const shopifyConnected = shopify?.status === "connected";
+  const lastSync = shopify?.lastSync
+    ? new Date(shopify.lastSync).toLocaleString()
+    : "Never";
+
   const triggerSync = async () => {
+    if (!shopifyConnected) return;
     setSyncing(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setSyncing(false);
-    setLastSync("Just now");
+    try {
+      await integrationsApi.sync("shopify");
+      const list = await integrationsApi.list();
+      setShopify(list.find((i) => i.provider === "shopify") ?? null);
+    } catch {
+      /* surfaced on the Integrations page */
+    } finally {
+      setSyncing(false);
+    }
   };
 
   // Cycle theme: light -> dark -> moonlight -> system -> light
@@ -86,29 +106,8 @@ export default function DashboardLayout({
   const themeMeta = getThemeMeta();
   const ActiveThemeIcon = themeMeta.icon;
 
-  const mockNotifications = [
-    {
-      id: 1,
-      title: "Out of Stock Warning",
-      desc: "Smart Fitness Band V2 has hit 0 units.",
-      time: "10m ago",
-      type: "alert",
-    },
-    {
-      id: 2,
-      title: "High RTO Detected",
-      desc: "North region COD return rate is currently 6.8%.",
-      time: "1h ago",
-      type: "warning",
-    },
-    {
-      id: 3,
-      title: "Shopify Sync Complete",
-      desc: "14 new orders imported successfully.",
-      time: "5m ago",
-      type: "success",
-    },
-  ];
+  // Real notifications feed — empty until an alerts service populates it.
+  const notifications: { id: number; title: string; desc: string; time: string; type: string }[] = [];
 
   return (
     <>
@@ -186,19 +185,22 @@ export default function DashboardLayout({
           })}
         </nav>
 
-        {/* Bottom Shopify Connected Pill */}
+        {/* Bottom Shopify status pill (real status from Integrations) */}
         <div className={`p-4 border-t border-border bg-muted/5 flex justify-center ${collapsed ? "px-2" : "px-4"}`}>
           {collapsed ? (
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400" title="Shopify Connected">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <div
+              className={`w-8 h-8 rounded-lg flex items-center justify-center ${shopifyConnected ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" : "bg-muted/10 border border-border text-muted-foreground"}`}
+              title={shopifyConnected ? "Shopify Connected" : "Shopify Not Connected"}
+            >
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${shopifyConnected ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
             </div>
           ) : (
-            <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold w-full">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                <span>Shopify Connected</span>
+            <Link href="/dashboard/integrations" className="w-full">
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold w-full ${shopifyConnected ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" : "bg-muted/10 border border-border text-muted-foreground hover:text-foreground"}`}>
+                <span className={`w-2 h-2 rounded-full shrink-0 ${shopifyConnected ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
+                <span>{shopifyConnected ? "Shopify Connected" : "Connect Shopify"}</span>
               </div>
-            </div>
+            </Link>
           )}
         </div>
       </aside>
@@ -350,7 +352,10 @@ export default function DashboardLayout({
                       <button className="text-[10px] text-primary hover:underline font-semibold">Mark read</button>
                     </div>
                     <div className="py-1 max-h-64 overflow-y-auto divide-y divide-border scrollbar-thin">
-                      {mockNotifications.map((n) => (
+                      {notifications.length === 0 && (
+                        <p className="p-4 text-center text-xs text-muted-foreground">No notifications yet.</p>
+                      )}
+                      {notifications.map((n) => (
                         <div key={n.id} className="p-3 hover:bg-muted/10 transition-colors flex gap-2.5">
                           <div className={`w-7 h-7 rounded-lg shrink-0 flex items-center justify-center text-xs ${
                             n.type === "alert" ? "bg-red-500/10 text-red-500" :

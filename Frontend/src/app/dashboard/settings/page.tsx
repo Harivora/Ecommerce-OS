@@ -7,54 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { aiApi, type AIConfig } from "@/lib/ai-api";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { dataApi, type TeamMemberDTO } from "@/lib/data-api";
 
 // Plan pricing (INR/month) — keep in sync with backend app/core/plans.py.
 const PLAN_PRICE_INR: Record<string, number> = { starter: 4599, growth: 8599, scale: 21599 };
 const fmtINR = (n: number) => "₹" + n.toLocaleString("en-IN");
 
-interface TeamMember {
-  id: string;
-  name: string;
-  email: string;
-  role: "Owner" | "Admin" | "Viewer";
-  status: "Active" | "Invited";
-  avatarColor: string;
-}
-
-const initialMembers: TeamMember[] = [
-  {
-    id: "m1",
-    name: "Hari Krishna",
-    email: "hari@commerceos.ai",
-    role: "Owner",
-    status: "Active",
-    avatarColor: "from-[#8b5cf6] to-[#6366f1]",
-  },
-  {
-    id: "m2",
-    name: "Aisha Khan",
-    email: "aisha@commerceos.ai",
-    role: "Admin",
-    status: "Active",
-    avatarColor: "from-[#3b82f6] to-[#06b6d4]",
-  },
-  {
-    id: "m3",
-    name: "Ravi Iyer",
-    email: "ravi@commerceos.ai",
-    role: "Viewer",
-    status: "Active",
-    avatarColor: "from-[#6366f1] to-[#4f46e5]",
-  },
-  {
-    id: "m4",
-    name: "Neha Kapoor",
-    email: "neha@commerceos.ai",
-    role: "Viewer",
-    status: "Invited",
-    avatarColor: "from-[#a855f7] to-[#7c3aed]",
-  },
-];
+type TeamRole = "owner" | "admin" | "viewer";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<"team" | "billing" | "org" | "notifications" | "ai">("billing");
@@ -104,9 +63,14 @@ export default function SettingsPage() {
       setAiBusy(false);
     }
   };
-  const [team, setTeam] = useState<TeamMember[]>(initialMembers);
+  const [team, setTeam] = useState<TeamMemberDTO[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<TeamMember["role"]>("Viewer");
+  const [inviteRole, setInviteRole] = useState<TeamRole>("viewer");
+  const [teamErr, setTeamErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    dataApi.team().then(setTeam).catch(() => setTeam([]));
+  }, []);
 
   // Mock Org States
   const [orgName, setOrgName] = useState("Commerce OS");
@@ -117,23 +81,19 @@ export default function SettingsPage() {
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [lowStockAlerts, setLowStockAlerts] = useState(true);
 
-  const handleInvite = (e: React.FormEvent) => {
+  const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteEmail) return;
-
-    const initials = inviteEmail.split("@")[0].substring(0, 2).toUpperCase();
-    const newMember: TeamMember = {
-      id: `m-${Date.now()}`,
-      name: initials,
-      email: inviteEmail,
-      role: inviteRole,
-      status: "Invited",
-      avatarColor: "from-[#ec4899] to-[#f43f5e]",
-    };
-
-    setTeam((prev) => [...prev, newMember]);
-    setInviteEmail("");
-    setInviteRole("Viewer");
+    setTeamErr(null);
+    try {
+      const name = inviteEmail.split("@")[0];
+      await dataApi.inviteMember(name, inviteEmail, inviteRole);
+      setTeam(await dataApi.team());
+      setInviteEmail("");
+      setInviteRole("viewer");
+    } catch (err) {
+      setTeamErr(err instanceof ApiError ? err.message : "Could not invite member.");
+    }
   };
 
   return (
@@ -202,9 +162,9 @@ export default function SettingsPage() {
                     onChange={(e) => setInviteRole(e.target.value as any)}
                     className="w-full pl-3 pr-8 py-2.5 rounded-xl bg-background border border-border focus:border-violet-500/50 text-xs outline-none text-foreground appearance-none cursor-pointer [&>option]:bg-card [&>option]:text-foreground"
                   >
-                    <option value="Viewer">Viewer</option>
-                    <option value="Admin">Admin</option>
-                    <option value="Owner">Owner</option>
+                    <option value="viewer">Viewer</option>
+                    <option value="admin">Admin</option>
+                    <option value="owner">Owner</option>
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
                 </div>
@@ -218,6 +178,10 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {teamErr && (
+            <p className="text-xs text-red-400 bg-red-500/10 px-3 py-2 rounded-lg">{teamErr}</p>
+          )}
+
           {/* Members list */}
           <Card className="border border-border bg-card/40 backdrop-blur-md rounded-2xl">
             <CardHeader className="pb-3 border-b border-border/30">
@@ -225,16 +189,19 @@ export default function SettingsPage() {
               <p className="text-[11px] text-muted-foreground mt-0.5">{team.length} members</p>
             </CardHeader>
             <CardContent className="p-0 divide-y divide-border/30">
+              {team.length === 0 && (
+                <div className="p-4 text-xs text-muted-foreground">No team members yet.</div>
+              )}
               {team.map((m) => {
-                const isOwner = m.role === "Owner";
-                const isActive = m.status === "Active";
+                const isOwner = m.role === "owner";
+                const isActive = m.status === "active";
 
                 return (
                   <div key={m.id} className="p-4 flex items-center justify-between hover:bg-muted/5 transition-all">
                     <div className="flex items-center gap-3">
                       {/* Avatar */}
-                      <div className={`w-9 h-9 rounded-full bg-gradient-to-tr ${m.avatarColor} text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm`}>
-                        {m.name.split(" ").map((n) => n[0]).join("")}
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#8b5cf6] to-[#6366f1] text-white flex items-center justify-center font-bold text-xs uppercase shadow-sm">
+                        {m.name.split(" ").map((n) => n[0]).join("").slice(0, 2)}
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5">
@@ -253,10 +220,9 @@ export default function SettingsPage() {
                       >
                         {m.status}
                       </Badge>
-                      {/* Dropdown-style text role selector */}
-                      <div className="flex items-center gap-1 bg-muted/10 border border-border/60 hover:bg-muted/20 px-3 py-1.5 rounded-xl cursor-pointer text-xs text-foreground font-semibold">
+                      {/* Role */}
+                      <div className="flex items-center gap-1 bg-muted/10 border border-border/60 px-3 py-1.5 rounded-xl text-xs text-foreground font-semibold capitalize">
                         <span>{m.role}</span>
-                        <ChevronDown className="w-3 h-3 text-muted-foreground" />
                       </div>
                     </div>
                   </div>
