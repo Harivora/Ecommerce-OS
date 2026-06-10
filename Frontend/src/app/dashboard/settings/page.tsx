@@ -18,7 +18,7 @@ type TeamRole = "owner" | "admin" | "viewer";
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<"team" | "billing" | "org" | "notifications" | "ai">("billing");
   const { organization } = useAuth();
-  const currentPlan = organization?.plan ?? "growth";
+  const currentPlan = organization?.plan ?? "starter";
   const currentPlanLabel = currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1);
 
   // AI analyst config (per-org Anthropic key)
@@ -302,9 +302,15 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
               <div className="px-6 pb-6 pt-2 border-t border-border/30">
-                <button className="w-full py-2.5 rounded-xl border border-border/80 hover:bg-muted/10 hover:border-foreground/40 text-xs font-bold text-foreground transition-all">
-                  Start Free Trial
-                </button>
+                {currentPlan === "starter" ? (
+                  <button className="w-full py-2.5 rounded-xl border border-emerald-500/40 text-emerald-400 text-xs font-bold text-center bg-emerald-950/20 cursor-default">
+                    Current Plan
+                  </button>
+                ) : (
+                  <button className="w-full py-2.5 rounded-xl border border-border/80 hover:bg-muted/10 hover:border-foreground/40 text-xs font-bold text-foreground transition-all">
+                    Switch to Starter
+                  </button>
+                )}
               </div>
             </Card>
 
@@ -323,9 +329,15 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
               <div className="px-6 pb-6 pt-2 border-t border-border/30">
-                <button className="w-full py-2.5 rounded-xl border border-emerald-500/40 text-emerald-400 text-xs font-bold text-center bg-emerald-950/20 cursor-default">
-                  Current Plan
-                </button>
+                {currentPlan === "growth" ? (
+                  <button className="w-full py-2.5 rounded-xl border border-emerald-500/40 text-emerald-400 text-xs font-bold text-center bg-emerald-950/20 cursor-default">
+                    Current Plan
+                  </button>
+                ) : (
+                  <button className="w-full py-2.5 rounded-xl border border-border/80 hover:bg-muted/10 hover:border-foreground/40 text-xs font-bold text-foreground transition-all">
+                    Switch to Growth
+                  </button>
+                )}
               </div>
             </Card>
 
@@ -344,9 +356,15 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
               <div className="px-6 pb-6 pt-2 border-t border-border/30">
-                <button className="w-full py-2.5 rounded-xl border border-border/80 hover:bg-muted/10 hover:border-foreground/40 text-xs font-bold text-foreground transition-all">
-                  Contact Sales
-                </button>
+                {currentPlan === "scale" ? (
+                  <button className="w-full py-2.5 rounded-xl border border-emerald-500/40 text-emerald-400 text-xs font-bold text-center bg-emerald-950/20 cursor-default">
+                    Current Plan
+                  </button>
+                ) : (
+                  <button className="w-full py-2.5 rounded-xl border border-border/80 hover:bg-muted/10 hover:border-foreground/40 text-xs font-bold text-foreground transition-all">
+                    Contact Sales
+                  </button>
+                )}
               </div>
             </Card>
           </div>

@@ -124,6 +124,35 @@ export interface TeamMemberDTO {
   status: string;
 }
 
+export interface ForecastPointDTO {
+  month: string;
+  actual: number | null;
+  predicted: number;
+  lower: number;
+  upper: number;
+}
+
+export interface ShippingMetricsDTO {
+  totalShipments: number;
+  delivered: number;
+  inTransit: number;
+  rtoCount: number;
+  rtoRate: number;
+  avgCost: number;
+  avgDeliveryDays: number;
+}
+
+export interface PaymentSettlementDTO {
+  id: string;
+  gateway: string;
+  amount: number;
+  fees: number;
+  netAmount: number;
+  date: string | null;
+  status: string;
+  method: string;
+}
+
 export const dataApi = {
   // Dashboard
   kpis: () => api.get<{ kpis: KPIData[] }>("/dashboard/kpis"),
@@ -146,4 +175,9 @@ export const dataApi = {
   team: () => api.get<TeamMemberDTO[]>("/team"),
   inviteMember: (name: string, email: string, role: string) =>
     api.post<TeamMemberDTO>("/team", { name, email, role }),
+
+  // Forecasting / shipping / payments
+  forecasting: () => api.get<ForecastPointDTO[]>("/forecasting"),
+  shipping: () => api.get<ShippingMetricsDTO>("/shipping"),
+  payments: () => api.get<PaymentSettlementDTO[]>("/payments"),
 };
