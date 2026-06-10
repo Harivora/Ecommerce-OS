@@ -289,44 +289,64 @@ class ShopifyConnector(BaseConnector):
         on_page: Callable[[int], None] | None = None,
         extra_params: dict | None = None,
     ) -> int:
-        existing = {
-            p.external_id: p
-            for p in session.scalars(
-                select(Product).where(Product.organization_id == org_id)
-            )
-        }
-        pending_cost: list[tuple[Product, str]] = []
+        from itertools import islice
         count = 0
-        for p in self._paginate(
-            client, "/products.json", "products", params=extra_params, on_page=on_page
-        ):
-            variants = p.get("variants", [])
-            first = variants[0] if variants else {}
-            ext_id = str(p["id"])
-            row = existing.get(ext_id)
-            if row is None:
-                row = Product(organization_id=org_id, external_id=ext_id)
-                session.add(row)
-                existing[ext_id] = row
-            row.name = p.get("title", "")
-            row.sku = first.get("sku")
-            row.category = p.get("product_type") or None
-            row.price = float(first.get("price") or 0)
-            row.stock = sum(int(v.get("inventory_quantity") or 0) for v in variants)
-            row.image = (p.get("image") or {}).get("src")
-            row.status = (
-                ProductStatus.active if p.get("status") == "active" else ProductStatus.draft
-            )
-            inv_id = first.get("inventory_item_id")
-            if inv_id:
-                pending_cost.append((row, str(inv_id)))
-            count += 1
-
-        # Batch-fetch per-unit COGS from InventoryItem (needs read_inventory scope).
-        costs = self._inventory_costs(client, [iid for _, iid in pending_cost])
-        for row, iid in pending_cost:
-            if iid in costs:
-                row.cost = costs[iid]
+        
+        iterator = iter(self._paginate(
+            client, "/products.json", "products", params=extra_params
+        ))
+        
+        while True:
+            batch = list(islice(iterator, 250))
+            if not batch:
+                break
+                
+            ext_ids = [str(p["id"]) for p in batch]
+            existing = {
+                p.external_id: p
+                for p in session.scalars(
+                    select(Product).where(
+                        Product.organization_id == org_id,
+                        Product.external_id.in_(ext_ids)
+                    )
+                )
+            }
+            
+            pending_cost: list[tuple[Product, str]] = []
+            
+            for p in batch:
+                variants = p.get("variants", [])
+                first = variants[0] if variants else {}
+                ext_id = str(p["id"])
+                row = existing.get(ext_id)
+                if row is None:
+                    row = Product(organization_id=org_id, external_id=ext_id)
+                    session.add(row)
+                    existing[ext_id] = row
+                row.name = p.get("title", "")
+                row.sku = first.get("sku")
+                row.category = p.get("product_type") or None
+                row.price = float(first.get("price") or 0)
+                row.stock = sum(int(v.get("inventory_quantity") or 0) for v in variants)
+                row.image = (p.get("image") or {}).get("src")
+                row.status = (
+                    ProductStatus.active if p.get("status") == "active" else ProductStatus.draft
+                )
+                inv_id = first.get("inventory_item_id")
+                if inv_id:
+                    pending_cost.append((row, str(inv_id)))
+            
+            # Batch-fetch per-unit COGS from InventoryItem
+            costs = self._inventory_costs(client, [iid for _, iid in pending_cost])
+            for row, iid in pending_cost:
+                if iid in costs:
+                    row.cost = costs[iid]
+            
+            session.commit()
+            if on_page:
+                on_page(len(batch))
+            count += len(batch)
+            
         return count
 
     def _inventory_costs(self, client: httpx.Client, ids: list[str]) -> dict[str, float]:
@@ -353,33 +373,52 @@ class ShopifyConnector(BaseConnector):
         on_page: Callable[[int], None] | None = None,
         extra_params: dict | None = None,
     ) -> int:
-        existing = {
-            c.external_id: c
-            for c in session.scalars(
-                select(Customer).where(Customer.organization_id == org_id)
-            )
-        }
+        from itertools import islice
         count = 0
-        for c in self._paginate(
-            client, "/customers.json", "customers", params=extra_params, on_page=on_page
-        ):
-            ext_id = str(c["id"])
-            row = existing.get(ext_id)
-            if row is None:
-                row = Customer(organization_id=org_id, external_id=ext_id)
-                session.add(row)
-                existing[ext_id] = row
-            row.name = f"{c.get('first_name', '')} {c.get('last_name', '')}".strip() or "Customer"
-            row.email = c.get("email")
-            row.phone = c.get("phone")
-            row.total_orders = int(c.get("orders_count") or 0)
-            row.total_spent = float(c.get("total_spent") or 0)
-            row.ltv = row.total_spent
-            addr = c.get("default_address") or {}
-            row.city = addr.get("city")
-            row.last_order = _parse_dt(c.get("updated_at"))
-            row.segment = self._segment(row.total_orders, row.total_spent)
-            count += 1
+        
+        iterator = iter(self._paginate(
+            client, "/customers.json", "customers", params=extra_params
+        ))
+        
+        while True:
+            batch = list(islice(iterator, 250))
+            if not batch:
+                break
+                
+            ext_ids = [str(c["id"]) for c in batch]
+            existing = {
+                c.external_id: c
+                for c in session.scalars(
+                    select(Customer).where(
+                        Customer.organization_id == org_id,
+                        Customer.external_id.in_(ext_ids)
+                    )
+                )
+            }
+            
+            for c in batch:
+                ext_id = str(c["id"])
+                row = existing.get(ext_id)
+                if row is None:
+                    row = Customer(organization_id=org_id, external_id=ext_id)
+                    session.add(row)
+                    existing[ext_id] = row
+                row.name = f"{c.get('first_name', '')} {c.get('last_name', '')}".strip() or "Customer"
+                row.email = c.get("email")
+                row.phone = c.get("phone")
+                row.total_orders = int(c.get("orders_count") or 0)
+                row.total_spent = float(c.get("total_spent") or 0)
+                row.ltv = row.total_spent
+                addr = c.get("default_address") or {}
+                row.city = addr.get("city")
+                row.last_order = _parse_dt(c.get("updated_at"))
+                row.segment = self._segment(row.total_orders, row.total_spent)
+                
+            session.commit()
+            if on_page:
+                on_page(len(batch))
+            count += len(batch)
+            
         return count
 
     @staticmethod
@@ -410,79 +449,103 @@ class ShopifyConnector(BaseConnector):
         on_page: Callable[[int], None] | None = None,
         extra_params: dict | None = None,
     ) -> tuple[int, int]:
-        existing = {
-            o.external_id: o
-            for o in session.scalars(
-                select(Order).where(Order.organization_id == org_id)
-            )
-        }
+        from itertools import islice
         order_count = 0
         refund_count = 0
         order_params = {"status": "any", **(extra_params or {})}
-        for o in self._paginate(
-            client, "/orders.json", "orders", order_params, on_page=on_page
-        ):
-            ext_id = str(o["id"])
-            row = existing.get(ext_id)
-            if row is None:
-                row = Order(organization_id=org_id, external_id=ext_id)
-                session.add(row)
-                existing[ext_id] = row
-            else:
-                row.items.clear()
-                row.refunds.clear()
-            cust = o.get("customer") or {}
-            shipping_total = sum(float(s.get("price") or 0) for s in o.get("shipping_lines", []))
-
-            row.order_number = o.get("name")
-            row.customer_name = (
-                f"{cust.get('first_name', '')} {cust.get('last_name', '')}".strip() or None
-            )
-            row.customer_email = o.get("email") or cust.get("email")
-            row.total = float(o.get("total_price") or 0)
-            row.subtotal = float(o.get("subtotal_price") or 0)
-            row.shipping = shipping_total
-            row.tax = float(o.get("total_tax") or 0)
-            row.discount = float(o.get("total_discounts") or 0)
-            row.item_count = sum(int(li.get("quantity") or 0) for li in o.get("line_items", []))
-            row.status = _map_order_status(o)
-            gateways = o.get("payment_gateway_names") or []
-            row.payment_method = gateways[0] if gateways else None
-            row.channel = "Shopify"
-            row.ordered_at = _parse_dt(o.get("created_at"))
-
-            for li in o.get("line_items", []):
-                sku = li.get("sku")
-                row.items.append(
-                    OrderItem(
-                        organization_id=org_id,
-                        title=li.get("title"),
-                        sku=sku,
-                        quantity=int(li.get("quantity") or 0),
-                        unit_price=float(li.get("price") or 0),
-                        unit_cost=cost_by_sku.get(sku, 0.0) if sku else 0.0,
+        
+        iterator = iter(self._paginate(
+            client, "/orders.json", "orders", order_params
+        ))
+        
+        while True:
+            batch = list(islice(iterator, 250))
+            if not batch:
+                break
+                
+            ext_ids = [str(o["id"]) for o in batch]
+            existing = {
+                o.external_id: o
+                for o in session.scalars(
+                    select(Order).where(
+                        Order.organization_id == org_id,
+                        Order.external_id.in_(ext_ids)
                     )
                 )
+            }
+            
+            for o in batch:
+                ext_id = str(o["id"])
+                row = existing.get(ext_id)
+                if row is None:
+                    row = Order(organization_id=org_id, external_id=ext_id)
+                    session.add(row)
+                    existing[ext_id] = row
+                else:
+                    # Clear out children for a clean replace
+                    # Using session.execute for hard delete is safer when bulk committing,
+                    # but since objects are in memory and attached, standard clear is fine.
+                    # Wait, if they are attached, we just loaded them. 
+                    row.items.clear()
+                    row.refunds.clear()
+                
+                cust = o.get("customer") or {}
+                shipping_total = sum(float(s.get("price") or 0) for s in o.get("shipping_lines", []))
 
-            for r in o.get("refunds", []):
-                amount = sum(
-                    float(t.get("amount") or 0)
-                    for t in r.get("transactions", [])
-                    if t.get("kind") in {"refund", "void"}
+                row.order_number = o.get("name")
+                row.customer_name = (
+                    f"{cust.get('first_name', '')} {cust.get('last_name', '')}".strip() or None
                 )
-                if amount <= 0:
+                row.customer_email = o.get("email") or cust.get("email")
+                row.total = float(o.get("total_price") or 0)
+                row.subtotal = float(o.get("subtotal_price") or 0)
+                row.shipping = shipping_total
+                row.tax = float(o.get("total_tax") or 0)
+                row.discount = float(o.get("total_discounts") or 0)
+                row.item_count = sum(int(li.get("quantity") or 0) for li in o.get("line_items", []))
+                row.status = _map_order_status(o)
+                gateways = o.get("payment_gateway_names") or []
+                row.payment_method = gateways[0] if gateways else None
+                row.channel = "Shopify"
+                row.ordered_at = _parse_dt(o.get("created_at"))
+
+                for li in o.get("line_items", []):
+                    sku = li.get("sku")
+                    row.items.append(
+                        OrderItem(
+                            organization_id=org_id,
+                            title=li.get("title"),
+                            sku=sku,
+                            quantity=int(li.get("quantity") or 0),
+                            unit_price=float(li.get("price") or 0),
+                            unit_cost=cost_by_sku.get(sku, 0.0) if sku else 0.0,
+                        )
+                    )
+
+                for r in o.get("refunds", []):
                     amount = sum(
-                        float(rl.get("subtotal") or 0) for rl in r.get("refund_line_items", [])
+                        float(t.get("amount") or 0)
+                        for t in r.get("transactions", [])
+                        if t.get("kind") in {"refund", "void"}
                     )
-                row.refunds.append(
-                    Refund(
-                        organization_id=org_id,
-                        external_id=str(r.get("id")),
-                        amount=amount,
-                        reason=r.get("note"),
-                        refunded_at=_parse_dt(r.get("created_at")),
+                    if amount <= 0:
+                        amount = sum(
+                            float(rl.get("subtotal") or 0) for rl in r.get("refund_line_items", [])
+                        )
+                    row.refunds.append(
+                        Refund(
+                            organization_id=org_id,
+                            external_id=str(r.get("id")),
+                            amount=amount,
+                            reason=r.get("note"),
+                            refunded_at=_parse_dt(r.get("created_at")),
+                        )
                     )
-                )
-                refund_count += 1
-            order_count += 1
+                    refund_count += 1
+                order_count += 1
+                
+            session.commit()
+            if on_page:
+                on_page(len(batch))
+
         return order_count, refund_count
