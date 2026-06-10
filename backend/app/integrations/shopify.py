@@ -262,14 +262,15 @@ class ShopifyConnector(BaseConnector):
             products = self._sync_products(
                 client, session, organization_id, on_page=tag("products"), extra_params=extra
             )
-            customers = self._sync_customers(
-                client, session, organization_id, on_page=tag("customers"), extra_params=extra
-            )
-            session.flush()
+            # Orders BEFORE customers: the dashboard/orders depend on orders,
+            # and large stores can have hundreds of thousands of customers.
             cost_by_sku = self._build_cost_map(session, organization_id)
             orders, refunds = self._sync_orders(
                 client, session, organization_id, cost_by_sku,
                 on_page=tag("orders"), extra_params=extra,
+            )
+            customers = self._sync_customers(
+                client, session, organization_id, on_page=tag("customers"), extra_params=extra
             )
         session.flush()
         return SyncResult(
