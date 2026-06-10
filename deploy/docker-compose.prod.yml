@@ -1,7 +1,7 @@
-# Production stack for the EC2 box. Postgres + Redis are MANAGED (RDS +
-# ElastiCache) — only the app services + Caddy (TLS) run here. All config comes
-# from /opt/commerce/.env (pulled from SSM at boot). Build context is ./backend,
-# which you rsync to /opt/commerce/backend.
+# Production stack for the EC2 box (t3.small / 2 GB RAM).
+# Postgres + Redis are MANAGED (RDS + ElastiCache) — only the app services +
+# Caddy (TLS) run here. All config comes from /opt/commerce/.env (pulled from
+# SSM at boot). Build context is ./backend.
 
 services:
   caddy:
@@ -10,7 +10,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    env_file: ./.env # provides DOMAIN + ACME_EMAIL used by the Caddyfile
+    env_file: ./.env
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -22,7 +22,6 @@ services:
     build: ./backend
     restart: unless-stopped
     env_file: ./.env
-    # Run migrations against RDS, then serve.
     command: >
       sh -c "alembic upgrade head &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
@@ -33,15 +32,15 @@ services:
     build: ./backend
     restart: unless-stopped
     env_file: ./.env
-    command: celery -A app.tasks.celery_app.celery_app worker --loglevel=info
-    depends_on:
-      - api
-
-  beat:
-    build: ./backend
-    restart: unless-stopped
-    env_file: ./.env
-    command: celery -A app.tasks.celery_app.celery_app beat --loglevel=info
+    # solo pool = single process (no forking), drastically cuts memory.
+    # max-memory-per-child auto-recycles if it leaks past 150 MB.
+    # -B embeds the beat scheduler so we don't need a separate container.
+    command: >
+      celery -A app.tasks.celery_app.celery_app worker
+        --pool=solo
+        --loglevel=info
+        --max-memory-per-child=150000
+        -B
     depends_on:
       - api
 
