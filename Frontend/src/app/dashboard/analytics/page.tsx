@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { dataApi, type RevenueDataPoint, type ProfitBreakdownItem } from "@/lib/data-api";
+import { dataApi, type RevenueDataPoint, type ProfitBreakdownItem, type ProductDTO } from "@/lib/data-api";
 import { formatCurrency } from "@/lib/utils";
 import {
   ResponsiveContainer,
@@ -22,10 +22,12 @@ import {
 export default function AnalyticsPage() {
   const [revenueData, setRevenueData] = useState<RevenueDataPoint[]>([]);
   const [profitBreakdown, setProfitBreakdown] = useState<ProfitBreakdownItem[]>([]);
+  const [products, setProducts] = useState<ProductDTO[]>([]);
 
   useEffect(() => {
     dataApi.revenue().then(setRevenueData).catch(() => setRevenueData([]));
     dataApi.profitBreakdown().then(setProfitBreakdown).catch(() => setProfitBreakdown([]));
+    dataApi.products().then(setProducts).catch(() => setProducts([]));
   }, []);
 
   // Compute margins per month (guard divide-by-zero).
@@ -34,13 +36,17 @@ export default function AnalyticsPage() {
     marginPercent: d.revenue ? Math.round((d.profit / d.revenue) * 100) : 0,
   }));
 
-  const categoryData = [
-    { category: "Beauty", revenue: 3000000 },
-    { category: "Fashion", revenue: 2600000 },
-    { category: "Electronics", revenue: 2700000 },
-    { category: "Health", revenue: 1000000 },
-    { category: "Lifestyle", revenue: 600000 },
-  ];
+  // Real revenue-by-category, aggregated from synced products.
+  const categoryData = Object.entries(
+    products.reduce<Record<string, number>>((acc, p) => {
+      const cat = p.category || "Uncategorized";
+      acc[cat] = (acc[cat] || 0) + (p.revenue || 0);
+      return acc;
+    }, {})
+  )
+    .map(([category, revenue]) => ({ category, revenue }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 6);
 
   return (
     <div className="space-y-6">

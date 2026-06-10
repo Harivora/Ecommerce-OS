@@ -343,6 +343,7 @@ class ShopifyConnector(BaseConnector):
                     row.cost = costs[iid]
             
             session.commit()
+            session.expunge_all()  # free memory; next batch re-queries
             if on_page:
                 on_page(len(batch))
             count += len(batch)
@@ -415,6 +416,7 @@ class ShopifyConnector(BaseConnector):
                 row.segment = self._segment(row.total_orders, row.total_spent)
                 
             session.commit()
+            session.expunge_all()  # free memory; next batch re-queries
             if on_page:
                 on_page(len(batch))
             count += len(batch)
@@ -545,6 +547,7 @@ class ShopifyConnector(BaseConnector):
                 order_count += 1
                 
             session.commit()
+            session.expunge_all()  # free memory; next batch re-queries
             if on_page:
                 on_page(len(batch))
 
