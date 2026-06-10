@@ -5,19 +5,30 @@ import { Truck, CheckCircle, RotateCcw, Clock, AlertTriangle, IndianRupee } from
 import { Card, CardContent } from "@/components/ui/card";
 import { dataApi, type ShippingMetricsDTO } from "@/lib/data-api";
 import { ApiError } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { planAllows } from "@/lib/entitlements";
+import { PlanLock } from "@/components/PlanLock";
 
 export default function ShippingPage() {
+  const { organization } = useAuth();
+  const allowed = planAllows(organization?.plan, "shipping");
   const [m, setM] = useState<ShippingMetricsDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!allowed) {
+      setLoading(false);
+      return;
+    }
     dataApi
       .shipping()
       .then(setM)
       .catch((e) => setError(e instanceof ApiError ? e.message : "Failed to load shipping data"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [allowed]);
+
+  if (!allowed) return <PlanLock feature="Shipping" plan="growth" />;
 
   const stats = m
     ? [

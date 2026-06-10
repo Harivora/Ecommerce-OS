@@ -119,3 +119,29 @@ async def require_super_admin(ctx: AuthContext = Depends(get_auth_context)) -> A
 
 # Roles allowed to mutate org data (everything except viewer).
 require_editor = require_roles(UserRole.owner, UserRole.admin, UserRole.super_admin)
+
+
+def require_feature(feature: str):
+    """Dependency: 403 unless the caller's org plan unlocks ``feature``."""
+
+    async def _checker(
+        ctx: AuthContext = Depends(get_auth_context),
+        db: AsyncSession = Depends(get_db),
+    ) -> AuthContext:
+        if not ctx.organization_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No organization in scope.",
+            )
+        from app.core.entitlements import plan_allows
+        from app.models.organization import Organization
+
+        org = await db.get(Organization, ctx.organization_id)
+        if org is not None and not plan_allows(org.plan, feature):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Your current plan doesn't include this feature. Upgrade to access it.",
+            )
+        return ctx
+
+    return _checker

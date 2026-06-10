@@ -94,6 +94,8 @@ export const adminApi = {
   client: (id: string) => api.get<AdminClientDetail>(`/admin/clients/${id}`),
   setStatus: (id: string, status: OrgStatus) =>
     api.patch<AdminClient>(`/admin/clients/${id}/status`, { status }),
+  setPlan: (id: string, plan: string) =>
+    api.patch<AdminClient>(`/admin/clients/${id}/plan`, { plan }),
   resetPassword: (id: string) =>
     api.post<ResetPasswordResult>(`/admin/clients/${id}/reset-password`),
   exportDatasets: (id: string) =>

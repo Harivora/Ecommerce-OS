@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme, Theme } from "@/contexts/ThemeContext";
 import { navigationItems } from "@/lib/mock-data";
 import { integrationsApi, type IntegrationDTO } from "@/lib/integrations-api";
+import { planAllows, NAV_FEATURE } from "@/lib/entitlements";
 import FloatingChatWidget from "@/components/FloatingChatWidget";
 import { impersonation } from "@/lib/admin-api";
 
@@ -18,7 +19,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, isLoading } = useAuth();
+  const { user, logout, isLoading, organization } = useAuth();
   const { theme, setTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -158,6 +159,8 @@ export default function DashboardLayout({
           {navigationItems.map((item) => {
             const IconComponent = (Icons as any)[item.icon] || Icons.HelpCircle;
             const active = pathname === item.href;
+            const feat = NAV_FEATURE[item.href];
+            const locked = feat ? !planAllows(organization?.plan, feat) : false;
             return (
               <Link
                 key={item.href}
@@ -173,13 +176,15 @@ export default function DashboardLayout({
                   <IconComponent className={`w-4 h-4 transition-colors shrink-0 ${active ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"}`} />
                   {!collapsed && <span className="whitespace-nowrap animate-scale-in origin-left">{item.label}</span>}
                 </div>
-                {!collapsed && item.badge && (
+                {!collapsed && locked ? (
+                  <Icons.Lock className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                ) : !collapsed && item.badge ? (
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
                     active ? "bg-white/20 text-white" : "bg-primary/10 text-primary border border-primary/20"
                   }`}>
                     {item.badge}
                   </span>
-                )}
+                ) : null}
               </Link>
             );
           })}

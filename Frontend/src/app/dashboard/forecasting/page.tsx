@@ -6,21 +6,32 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { dataApi, type ForecastPointDTO } from "@/lib/data-api";
 import { ApiError } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { planAllows } from "@/lib/entitlements";
+import { PlanLock } from "@/components/PlanLock";
 
 const inr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
 
 export default function ForecastingPage() {
+  const { organization } = useAuth();
+  const allowed = planAllows(organization?.plan, "forecasting");
   const [points, setPoints] = useState<ForecastPointDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!allowed) {
+      setLoading(false);
+      return;
+    }
     dataApi
       .forecasting()
       .then(setPoints)
       .catch((e) => setError(e instanceof ApiError ? e.message : "Failed to load forecast"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [allowed]);
+
+  if (!allowed) return <PlanLock feature="Forecasting" plan="growth" />;
 
   const future = points.filter((p) => p.actual === null);
   const nextMonth = future[0];

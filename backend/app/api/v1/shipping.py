@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.deps import require_org
+from app.core.deps import require_feature, require_org
 from app.models.finance import ShippingCost
 from app.schemas.finance import ShippingMetricsOut
 
@@ -15,7 +15,9 @@ router = APIRouter()
 
 @router.get("", response_model=ShippingMetricsOut)
 async def shipping_metrics(
-    org_id: str = Depends(require_org), db: AsyncSession = Depends(get_db)
+    org_id: str = Depends(require_org),
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_feature("shipping")),
 ) -> ShippingMetricsOut:
     rows = (
         await db.scalars(

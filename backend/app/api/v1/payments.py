@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.ads import _enqueue_recompute
 from app.core.database import get_db
-from app.core.deps import AuthContext, require_editor, require_org
+from app.core.deps import AuthContext, require_editor, require_feature, require_org
 from app.models.finance import PaymentFee
 from app.schemas.finance import PaymentFeeCreate, PaymentSettlementOut
 
@@ -29,7 +29,9 @@ def _to_settlement(p: PaymentFee) -> PaymentSettlementOut:
 
 @router.get("", response_model=list[PaymentSettlementOut])
 async def list_settlements(
-    org_id: str = Depends(require_org), db: AsyncSession = Depends(get_db)
+    org_id: str = Depends(require_org),
+    db: AsyncSession = Depends(get_db),
+    _: object = Depends(require_feature("payments")),
 ) -> list[PaymentSettlementOut]:
     rows = (
         await db.scalars(

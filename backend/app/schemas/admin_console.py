@@ -26,6 +26,10 @@ class OrgStatusUpdate(CamelModel):
     status: OrgStatus
 
 
+class PlanUpdate(CamelModel):
+    plan: PlanTier
+
+
 class ResetPasswordResult(CamelModel):
     email: str
     temporary_password: str

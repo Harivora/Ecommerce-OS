@@ -368,6 +368,25 @@ export default function SettingsPage() {
               </div>
             </Card>
           </div>
+
+          {/* Payment QR — drop your own image at Frontend/public/payment-qr.png */}
+          <Card className="border border-border bg-card/40 backdrop-blur-md rounded-2xl">
+            <CardHeader className="pb-3 border-b border-border/30">
+              <h3 className="text-sm font-bold text-foreground">Pay your subscription</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Scan to pay {fmtINR(PLAN_PRICE_INR[currentPlan])}/month for your {currentPlanLabel} plan,
+                then share the payment reference with support to activate.
+              </p>
+            </CardHeader>
+            <CardContent className="pt-6 flex flex-col items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/payment-qr.png"
+                alt="Subscription payment QR"
+                className="w-48 h-48 rounded-xl border border-border bg-white object-contain p-2"
+              />
+            </CardContent>
+          </Card>
         </div>
       )}
 

@@ -66,6 +66,15 @@ export default function AdminClientDetailPage() {
     }
   };
 
+  const changePlan = async (plan: string) => {
+    try {
+      await adminApi.setPlan(id, plan);
+      setClient(await adminApi.client(id));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Could not change plan");
+    }
+  };
+
   if (loading) {
     return <div className="text-muted-foreground">Loading client…</div>;
   }
@@ -108,13 +117,25 @@ export default function AdminClientDetailPage() {
             {new Date(client.createdAt).toLocaleDateString()}
           </p>
         </div>
-        <button
-          onClick={impersonate}
-          disabled={busy}
-          className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
-        >
-          <Icons.LogIn className="w-3.5 h-3.5" /> Log in as client
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={client.plan}
+            onChange={(e) => changePlan(e.target.value)}
+            className="px-3 py-2 rounded-xl bg-background border border-border text-xs font-semibold text-foreground [&>option]:bg-card [&>option]:text-foreground"
+            title="Change this client's plan (controls their feature access)"
+          >
+            <option value="starter">Starter plan</option>
+            <option value="growth">Growth plan</option>
+            <option value="scale">Scale plan</option>
+          </select>
+          <button
+            onClick={impersonate}
+            disabled={busy}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+          >
+            <Icons.LogIn className="w-3.5 h-3.5" /> Log in as client
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

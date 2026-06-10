@@ -6,21 +6,32 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { dataApi, type PaymentSettlementDTO } from "@/lib/data-api";
 import { ApiError } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { planAllows } from "@/lib/entitlements";
+import { PlanLock } from "@/components/PlanLock";
 
 const inr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
 
 export default function PaymentsPage() {
+  const { organization } = useAuth();
+  const allowed = planAllows(organization?.plan, "payments");
   const [rows, setRows] = useState<PaymentSettlementDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!allowed) {
+      setLoading(false);
+      return;
+    }
     dataApi
       .payments()
       .then(setRows)
       .catch((e) => setError(e instanceof ApiError ? e.message : "Failed to load payments"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [allowed]);
+
+  if (!allowed) return <PlanLock feature="Payments" plan="growth" />;
 
   const totalAmount = rows.reduce((s, r) => s + r.amount, 0);
   const totalFees = rows.reduce((s, r) => s + r.fees, 0);

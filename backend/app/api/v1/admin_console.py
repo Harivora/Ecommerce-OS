@@ -37,6 +37,7 @@ from app.schemas.admin_console import (
     AdminClientOut,
     AdminClientUser,
     OrgStatusUpdate,
+    PlanUpdate,
     ResetPasswordResult,
 )
 
@@ -203,6 +204,22 @@ async def set_client_status(
     if org is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Client not found")
     org.status = payload.status
+    await db.flush()
+    return await _client_out(db, org)
+
+
+@router.patch("/clients/{org_id}/plan", response_model=AdminClientOut)
+async def set_client_plan(
+    org_id: str,
+    payload: PlanUpdate,
+    _: AuthContext = Depends(require_super_admin),
+    db: AsyncSession = Depends(get_db),
+) -> AdminClientOut:
+    """Change a client's subscription plan (gates their feature access)."""
+    org = await db.get(Organization, org_id)
+    if org is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Client not found")
+    org.plan = payload.plan
     await db.flush()
     return await _client_out(db, org)
 
