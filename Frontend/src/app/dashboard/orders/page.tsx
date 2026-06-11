@@ -304,7 +304,7 @@ export default function OrdersPage() {
 
       {/* Order Detail Modal Drawer */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
@@ -312,9 +312,9 @@ export default function OrdersPage() {
           />
 
           {/* Drawer Panel */}
-          <div className="relative w-full max-w-lg bg-card border-l border-border h-full shadow-2xl flex flex-col animate-slide-in-right overflow-y-auto scrollbar-thin">
+          <div className="relative w-full max-w-lg max-h-[88vh] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border sticky top-0 bg-card z-10">
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border shrink-0">
               <div>
                 <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest block">Shopify Order</span>
                 <h2 className="text-lg font-bold text-primary flex items-center gap-1.5">
@@ -330,7 +330,7 @@ export default function OrdersPage() {
             </div>
 
             {/* Info content */}
-            <div className="px-6 py-6 space-y-6">
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scrollbar-thin">
               {/* Order Status & Simulation Controls */}
               <div className="p-4 rounded-xl border border-border bg-muted/5 space-y-3">
                 <div className="flex items-center justify-between">
@@ -472,7 +472,7 @@ export default function OrdersPage() {
             </div>
 
             {/* Close Button */}
-            <div className="border-t border-border px-6 pb-6 pt-4">
+            <div className="border-t border-border px-6 pb-6 pt-4 shrink-0">
               <button
                 onClick={() => setSelectedOrder(null)}
                 className="w-full py-2.5 rounded-xl bg-muted hover:bg-muted/80 text-xs font-semibold text-foreground transition-all border border-border"
