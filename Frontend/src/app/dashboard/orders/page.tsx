@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Search, Eye, User, Tag, CreditCard, X, ArrowUpRight, Ban, CheckCircle, RefreshCw } from "lucide-react";
+import { Search, Eye, User, Tag, CreditCard, X, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { dataApi } from "@/lib/data-api";
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
@@ -112,27 +112,6 @@ export default function OrdersPage() {
 
     return matchesSearch && matchesStatus;
   });
-
-  const updateOrderStatus = (orderId: string, newStatus: Order["status"]) => {
-    const updated = orders.map((o) => {
-      if (o.id === orderId) {
-        let newProfit = o.profit;
-        if (newStatus === "refunded") {
-          newProfit = -Math.round(o.total * 0.45); // Simulate penalty/lost cost
-        } else if (newStatus === "cancelled") {
-          newProfit = 0;
-        }
-        const updatedOrder = { ...o, status: newStatus, profit: newProfit };
-        // Update selected order details on the fly
-        if (selectedOrder?.id === orderId) {
-          setSelectedOrder(updatedOrder);
-        }
-        return updatedOrder;
-      }
-      return o;
-    });
-    setOrders(updated);
-  };
 
   const getTabCount = (status: string) => {
     if (status === "all") return orders.length;
@@ -312,7 +291,7 @@ export default function OrdersPage() {
           />
 
           {/* Drawer Panel */}
-          <div className="relative w-full max-w-lg max-h-[88vh] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+          <div className="relative w-full max-w-lg max-h-[90vh] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-border shrink-0">
               <div>
@@ -330,7 +309,7 @@ export default function OrdersPage() {
             </div>
 
             {/* Info content */}
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scrollbar-thin">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 scrollbar-thin">
               {/* Order Status & Simulation Controls */}
               <div className="p-4 rounded-xl border border-border bg-muted/5 space-y-3">
                 <div className="flex items-center justify-between">
@@ -338,37 +317,6 @@ export default function OrdersPage() {
                   <span className={`px-2.5 py-0.5 rounded-full border text-[10px] uppercase font-bold ${getStatusColor(selectedOrder.status)}`}>
                     {selectedOrder.status}
                   </span>
-                </div>
-
-                {/* Simulated updates */}
-                <div className="pt-3 border-t border-border flex flex-col gap-2">
-                  <span className="text-[10px] text-muted-foreground/60 uppercase font-bold tracking-wider">Simulate Status Transition</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedOrder.status !== "delivered" && selectedOrder.status !== "refunded" && selectedOrder.status !== "cancelled" && (
-                      <button
-                        onClick={() => updateOrderStatus(selectedOrder.id, "delivered")}
-                        className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[10px] font-semibold hover:bg-emerald-500/20 transition-all flex items-center gap-1"
-                      >
-                        <CheckCircle className="w-3 h-3" /> Mark Delivered
-                      </button>
-                    )}
-                    {selectedOrder.status !== "refunded" && selectedOrder.status !== "cancelled" && (
-                      <button
-                        onClick={() => updateOrderStatus(selectedOrder.id, "refunded")}
-                        className="px-2 py-1 rounded bg-purple-500/10 text-purple-500 border border-purple-500/20 text-[10px] font-semibold hover:bg-purple-500/20 transition-all flex items-center gap-1"
-                      >
-                        <ArrowUpRight className="w-3 h-3" /> Simulate RTO / Refund
-                      </button>
-                    )}
-                    {selectedOrder.status !== "cancelled" && selectedOrder.status !== "delivered" && selectedOrder.status !== "refunded" && (
-                      <button
-                        onClick={() => updateOrderStatus(selectedOrder.id, "cancelled")}
-                        className="px-2 py-1 rounded bg-red-500/10 text-red-500 border border-red-500/20 text-[10px] font-semibold hover:bg-red-500/20 transition-all flex items-center gap-1"
-                      >
-                        <Ban className="w-3 h-3" /> Cancel Order
-                      </button>
-                    )}
-                  </div>
                 </div>
               </div>
 

@@ -284,7 +284,7 @@ export default function CustomersPage() {
       {openId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={closeDetail} />
-          <div className="relative w-full max-w-lg max-h-[88vh] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+          <div className="relative w-full max-w-lg max-h-[90vh] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
             {(() => {
               const base = customers.find((c) => c.id === openId);
               const name = detail?.name ?? base?.name ?? "Customer";
@@ -321,7 +321,7 @@ export default function CustomersPage() {
                     </button>
                   </div>
 
-                  <div className="p-6 space-y-6 flex-1 overflow-y-auto scrollbar-thin">
+                  <div className="px-6 py-5 space-y-4 flex-1 overflow-y-auto scrollbar-thin">
                     {/* Contact */}
                     <div className="grid grid-cols-1 gap-2 text-xs">
                       <span className="flex items-center gap-2 text-muted-foreground"><Mail className="w-3.5 h-3.5" /> {email || "No email on file"}</span>
