@@ -279,13 +279,22 @@ class ShopifyConnector(BaseConnector):
             # Orders BEFORE customers: the dashboard/orders depend on orders,
             # and large stores can have hundreds of thousands of customers.
             cost_by_sku = self._build_cost_map(session, organization_id)
-            orders, refunds = self._sync_orders(
-                client, session, organization_id, cost_by_sku,
-                on_page=tag("orders"), extra_params=extra,
-            )
-            customers = self._sync_customers(
-                client, session, organization_id, on_page=tag("customers"), extra_params=extra
-            )
+            try:
+                orders, refunds = self._sync_orders(
+                    client, session, organization_id, cost_by_sku,
+                    on_page=tag("orders"), extra_params=extra,
+                )
+            except ConnectorError as exc:
+                # Keep whatever committed; a later run resumes (upserts are idempotent).
+                logger.warning("Shopify order sync incomplete: %s", exc)
+                orders, refunds = 0, 0
+            try:
+                customers = self._sync_customers(
+                    client, session, organization_id, on_page=tag("customers"), extra_params=extra
+                )
+            except ConnectorError as exc:
+                logger.warning("Shopify customer sync incomplete: %s", exc)
+                customers = 0
         session.flush()
         return SyncResult(
             counts={
