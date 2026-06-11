@@ -181,10 +181,13 @@ async def trigger_sync(
         select(Integration).where(
             Integration.organization_id == org_id,
             Integration.provider == provider,
-            Integration.status == ConnectionStatus.connected,
+            # Allow retrying an errored integration, not just a healthy one.
+            Integration.status.in_(
+                [ConnectionStatus.connected, ConnectionStatus.error]
+            ),
         )
     )
-    if row is None:
+    if row is None or not row.credentials_encrypted:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Integration not connected")
     await db.commit()  # ensure committed state is visible to the worker
     enqueued = _enqueue_sync(row.id)
