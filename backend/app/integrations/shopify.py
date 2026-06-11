@@ -8,6 +8,7 @@ cost lookups, and retries on 429 rate limits. Only ever issues GET requests.
 """
 from __future__ import annotations
 
+import logging
 import re
 import time
 from collections.abc import Callable
@@ -41,6 +42,8 @@ MAX_RETRIES = 6
 # short connect timeout so genuine connection failures surface quickly.
 HTTP_TIMEOUT = httpx.Timeout(connect=15.0, read=120.0, write=30.0, pool=30.0)
 _NEXT_LINK_RE = re.compile(r'<([^>]+)>;\s*rel="next"')
+
+logger = logging.getLogger(__name__)
 
 # Per-page progress callback: (resource_name, records_in_page) -> None.
 # Called after each page's records have been consumed so the caller can commit
@@ -264,9 +267,15 @@ class ShopifyConnector(BaseConnector):
         extra = {"updated_at_min": since.isoformat()} if since else None
 
         with self._client(credentials) as client:
-            products = self._sync_products(
-                client, session, organization_id, on_page=tag("products"), extra_params=extra
-            )
+            try:
+                products = self._sync_products(
+                    client, session, organization_id, on_page=tag("products"), extra_params=extra
+                )
+            except ConnectorError as exc:
+                # Shopify's products endpoint can flap (503). Don't let it block
+                # the orders/customers sync — products fill on a later run.
+                logger.warning("Shopify product sync skipped: %s", exc)
+                products = 0
             # Orders BEFORE customers: the dashboard/orders depend on orders,
             # and large stores can have hundreds of thousands of customers.
             cost_by_sku = self._build_cost_map(session, organization_id)
