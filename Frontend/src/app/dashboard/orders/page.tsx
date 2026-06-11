@@ -7,6 +7,8 @@ import { dataApi } from "@/lib/data-api";
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
 import type { Order } from "@/types";
 
+const PAGE_SIZE = 50;
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,7 +20,7 @@ export default function OrdersPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [hasMore, setHasMore] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
 
   const range = useMemo<{ start?: string; end?: string }>(() => {
     const now = new Date();
@@ -67,15 +69,20 @@ export default function OrdersPage() {
       lineItems: o.lineItems ?? [],
     }));
 
+  // Reset to page 1 whenever the date range changes.
+  useEffect(() => {
+    setPage(1);
+  }, [range.start, range.end]);
+
   useEffect(() => {
     let active = true;
     setLoading(true);
     (async () => {
       try {
-        const rows = await dataApi.orders(200, 0, range.start, range.end);
+        const rows = await dataApi.orders(PAGE_SIZE, (page - 1) * PAGE_SIZE, range.start, range.end);
         if (!active) return;
         setOrders(mapRows(rows));
-        setHasMore(rows.length === 200);
+        setHasMore(rows.length === PAGE_SIZE);
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : "Failed to load orders");
       } finally {
@@ -85,20 +92,7 @@ export default function OrdersPage() {
     return () => {
       active = false;
     };
-  }, [range.start, range.end]);
-
-  const loadMore = async () => {
-    setLoadingMore(true);
-    try {
-      const rows = await dataApi.orders(200, orders.length, range.start, range.end);
-      setOrders((prev) => [...prev, ...mapRows(rows)]);
-      setHasMore(rows.length === 200);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load more orders");
-    } finally {
-      setLoadingMore(false);
-    }
-  };
+  }, [range.start, range.end, page]);
 
   // Search & Filter logic
   const filteredOrders = orders.filter((o) => {
@@ -119,6 +113,26 @@ export default function OrdersPage() {
   };
 
   const tabs = ["all", "pending", "processing", "shipped", "delivered", "cancelled", "refunded"];
+
+  const pager = (
+    <div className="flex items-center justify-between gap-2 px-1">
+      <button
+        onClick={() => setPage((p) => Math.max(1, p - 1))}
+        disabled={page === 1 || loading}
+        className="px-4 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-foreground hover:bg-muted/10 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        ← Previous
+      </button>
+      <span className="text-xs font-semibold text-muted-foreground">Page {page}</span>
+      <button
+        onClick={() => setPage((p) => p + 1)}
+        disabled={!hasMore || loading}
+        className="px-4 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-foreground hover:bg-muted/10 disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        Next →
+      </button>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -207,6 +221,8 @@ export default function OrdersPage() {
         </div>
       )}
 
+      {pager}
+
       {/* Orders Table Card */}
       <Card className="overflow-hidden border-border bg-card">
         <CardContent className="p-0 overflow-x-auto">
@@ -269,17 +285,7 @@ export default function OrdersPage() {
         </CardContent>
       </Card>
 
-      {hasMore && (
-        <div className="flex justify-center">
-          <button
-            onClick={loadMore}
-            disabled={loadingMore}
-            className="px-5 py-2 rounded-xl border border-border bg-card hover:bg-muted/10 text-xs font-semibold text-foreground disabled:opacity-50"
-          >
-            {loadingMore ? "Loading…" : `Load more (showing ${orders.length})`}
-          </button>
-        </div>
-      )}
+      {pager}
 
       {/* Order Detail Modal Drawer */}
       {selectedOrder && (
