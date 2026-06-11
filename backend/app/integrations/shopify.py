@@ -154,10 +154,15 @@ class ShopifyConnector(BaseConnector):
                 last_exc = exc
                 time.sleep(min(2 ** attempt, 15))
                 continue
-            if resp.status_code != 429:
-                return resp
-            wait = float(resp.headers.get("Retry-After", 2))
-            time.sleep(min(wait, 10))
+            if resp.status_code == 429:
+                wait = float(resp.headers.get("Retry-After", 2))
+                time.sleep(min(wait, 10))
+                continue
+            if resp.status_code in (500, 502, 503, 504):
+                # Transient Shopify outage/throttle — back off and retry.
+                time.sleep(min(2 ** attempt + 1, 20))
+                continue
+            return resp
         if resp is not None:
             return resp
         raise ConnectorError(
