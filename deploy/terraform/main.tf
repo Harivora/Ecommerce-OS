@@ -83,5 +83,11 @@ locals {
 
     PUBLIC_WEBHOOK_BASE_URL=https://${var.domain_name}
     SYNC_INTERVAL_MINUTES=60
+
+    SMTP_HOST=${var.smtp_host}
+    SMTP_PORT=${var.smtp_port}
+    SMTP_USER=${var.smtp_user}
+    SMTP_PASSWORD=${var.smtp_password}
+    SMTP_FROM=${var.smtp_from}
   EOT
 }

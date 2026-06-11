@@ -101,3 +101,35 @@ variable "anthropic_api_key" {
   sensitive   = true
   default     = ""
 }
+
+# ── Email (AWS SES SMTP) — optional; leave blank to disable sending ──
+variable "smtp_host" {
+  description = "SES SMTP endpoint, e.g. email-smtp.ap-south-1.amazonaws.com"
+  type        = string
+  default     = ""
+}
+
+variable "smtp_port" {
+  type    = string
+  default = "587"
+}
+
+variable "smtp_user" {
+  description = "SES SMTP username"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "smtp_password" {
+  description = "SES SMTP password"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "smtp_from" {
+  description = "Verified From address, e.g. no-reply@yourdomain.com"
+  type        = string
+  default     = "no-reply@yourdomain.com"
+}
