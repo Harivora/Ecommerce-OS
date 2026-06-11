@@ -22,6 +22,7 @@ export default function OrdersPage() {
   const [customEnd, setCustomEnd] = useState("");
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
   const range = useMemo<{ start?: string; end?: string }>(() => {
     const now = new Date();
@@ -67,12 +68,22 @@ export default function OrdersPage() {
       paymentMethod: o.paymentMethod ?? "",
       profit: o.profit,
       channel: o.channel ?? "Shopify",
+      paymentStatus: o.paymentStatus ?? undefined,
+      fulfillmentStatus: o.fulfillmentStatus ?? undefined,
       lineItems: o.lineItems ?? [],
     }));
 
   // Reset to page 1 whenever the date range changes.
   useEffect(() => {
     setPage(1);
+  }, [range.start, range.end]);
+
+  // Total count drives the page numbers.
+  useEffect(() => {
+    dataApi
+      .ordersCount(range.start, range.end)
+      .then((r) => setTotal(r.total))
+      .catch(() => setTotal(0));
   }, [range.start, range.end]);
 
   useEffect(() => {
@@ -115,6 +126,24 @@ export default function OrdersPage() {
 
   const tabs = ["all", "pending", "processing", "shipped", "delivered", "cancelled", "refunded"];
 
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const paymentBadge = (st?: string) => {
+    const v = (st || "").toLowerCase();
+    if (v === "paid") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+    if (v.includes("refund")) return "bg-red-500/10 text-red-400 border-red-500/20";
+    if (v === "pending" || v === "authorized" || v === "partially_paid")
+      return "bg-amber-500/10 text-amber-500 border-amber-500/20";
+    return "bg-muted/10 text-muted-foreground border-border";
+  };
+  const fulfillmentBadge = (st?: string) => {
+    const v = (st || "unfulfilled").toLowerCase();
+    if (v === "fulfilled") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+    if (v === "partial") return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+    return "bg-amber-500/10 text-amber-500 border-amber-500/20";
+  };
+  const labelize = (st?: string, fallback = "—") => (st ? st.replace(/_/g, " ") : fallback);
+
   const pager = (
     <div className="flex items-center justify-between gap-2 px-1">
       <button
@@ -124,10 +153,13 @@ export default function OrdersPage() {
       >
         ← Previous
       </button>
-      <span className="text-xs font-semibold text-muted-foreground">Page {page}</span>
+      <span className="text-xs font-semibold text-muted-foreground">
+        Page {page} of {totalPages}
+        <span className="text-muted-foreground/60"> · {total.toLocaleString()} orders</span>
+      </span>
       <button
-        onClick={() => setPage((p) => p + 1)}
-        disabled={!hasMore || loading}
+        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+        disabled={page >= totalPages || loading}
         className="px-4 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-foreground hover:bg-muted/10 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         Next →
@@ -227,15 +259,16 @@ export default function OrdersPage() {
       {/* Orders Table Card */}
       <Card className="overflow-hidden border-border bg-card">
         <CardContent className="p-0 overflow-x-auto">
-          <table className="w-full text-xs text-left min-w-[700px]">
+          <table className="w-full text-xs text-left min-w-[900px]">
             <thead>
               <tr className="bg-muted/10 text-muted-foreground border-b border-border">
                 <th className="p-4 font-semibold text-[10px] tracking-wider">ORDER</th>
-                <th className="p-4 font-semibold text-[10px] tracking-wider">CUSTOMER</th>
                 <th className="p-4 font-semibold text-[10px] tracking-wider">DATE</th>
-                <th className="p-4 font-semibold text-[10px] tracking-wider">STATUS</th>
-                <th className="p-4 font-semibold text-[10px] tracking-wider">CHANNEL</th>
+                <th className="p-4 font-semibold text-[10px] tracking-wider">CUSTOMER</th>
                 <th className="p-4 font-semibold text-right text-[10px] tracking-wider">TOTAL</th>
+                <th className="p-4 font-semibold text-[10px] tracking-wider">PAYMENT</th>
+                <th className="p-4 font-semibold text-[10px] tracking-wider">FULFILLMENT</th>
+                <th className="p-4 font-semibold text-center text-[10px] tracking-wider">ITEMS</th>
                 <th className="p-4 font-semibold text-right text-[10px] tracking-wider">PROFIT</th>
                 <th className="p-4 font-semibold text-center w-12"></th>
               </tr>
@@ -244,27 +277,29 @@ export default function OrdersPage() {
               {filteredOrders.map((o) => {
                 const profitColor = o.profit > 0 ? "text-emerald-400 font-bold" : o.profit < 0 ? "text-red-400 font-bold" : "text-muted-foreground";
                 return (
-                  <tr key={o.id} className="hover:bg-muted/5 transition-colors group">
-                    <td className="p-4 font-bold text-foreground">{o.id}</td>
+                  <tr key={o.id} onClick={() => setSelectedOrder(o)} className="hover:bg-muted/5 transition-colors group cursor-pointer">
+                    <td className="p-4 font-bold text-primary">{o.id}</td>
+                    <td className="p-4 text-muted-foreground whitespace-nowrap">{formatDate(o.date)}</td>
                     <td className="p-4">
                       <div className="font-semibold text-foreground">{o.customer}</div>
-                      <div className="text-[10px] text-muted-foreground font-normal">{o.email}</div>
+                      {o.email && <div className="text-[10px] text-muted-foreground font-normal">{o.email}</div>}
                     </td>
+                    <td className="p-4 text-right font-semibold text-foreground">{formatCurrency(o.total)}</td>
                     <td className="p-4">
-                      <div className="font-semibold text-foreground">{formatDate(o.date)}</div>
-                      <div className="text-[10px] text-muted-foreground font-normal">{formatDate(o.date)}</div>
-                    </td>
-                    <td className="p-4">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-full border text-[10px] uppercase font-bold ${getStatusColor(o.status)}`}>
-                        {o.status}
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full border text-[10px] capitalize font-bold ${paymentBadge(o.paymentStatus)}`}>
+                        {labelize(o.paymentStatus, "—")}
                       </span>
                     </td>
-                    <td className="p-4 text-muted-foreground font-medium">{o.channel}</td>
-                    <td className="p-4 text-right font-semibold text-foreground">{formatCurrency(o.total)}</td>
+                    <td className="p-4">
+                      <span className={`inline-block px-2.5 py-0.5 rounded-full border text-[10px] capitalize font-bold ${fulfillmentBadge(o.fulfillmentStatus)}`}>
+                        {labelize(o.fulfillmentStatus, "unfulfilled")}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center text-muted-foreground font-medium">{o.items}</td>
                     <td className={`p-4 text-right ${profitColor}`}>{formatCurrency(o.profit)}</td>
                     <td className="p-4 text-center">
                       <button
-                        onClick={() => setSelectedOrder(o)}
+                        onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); }}
                         className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-all flex items-center justify-center"
                         title="View Details"
                       >
@@ -276,7 +311,7 @@ export default function OrdersPage() {
               })}
               {filteredOrders.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-muted-foreground text-sm bg-card">
+                  <td colSpan={9} className="text-center py-8 text-muted-foreground text-sm bg-card">
                     No orders match your filter criteria.
                   </td>
                 </tr>

@@ -39,6 +39,10 @@ class Order(Base):
     )
     customer_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     customer_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    # Shopify customer id — links orders to customers even when there's no email.
+    customer_external_id: Mapped[str | None] = mapped_column(
+        String(128), index=True, nullable=True
+    )
 
     total: Mapped[float] = mapped_column(Float, default=0.0)
     subtotal: Mapped[float] = mapped_column(Float, default=0.0)
@@ -50,6 +54,9 @@ class Order(Base):
     status: Mapped[OrderStatus] = mapped_column(
         SAEnum(OrderStatus, native_enum=False), default=OrderStatus.pending
     )
+    # Raw Shopify states, surfaced as separate Payment/Fulfillment columns.
+    financial_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    fulfillment_status: Mapped[str | None] = mapped_column(String(64), nullable=True)
     payment_method: Mapped[str | None] = mapped_column(String(64), nullable=True)
     channel: Mapped[str | None] = mapped_column(String(64), nullable=True)
     ordered_at: Mapped[datetime | None] = mapped_column(

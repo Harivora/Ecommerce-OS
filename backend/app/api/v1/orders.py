@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -63,6 +63,8 @@ async def list_orders(
                 discount=o.discount,
                 items=o.item_count,
                 status=o.status,
+                payment_status=o.financial_status,
+                fulfillment_status=o.fulfillment_status,
                 payment_method=o.payment_method,
                 profit=profit,
                 channel=o.channel,
@@ -78,3 +80,25 @@ async def list_orders(
             )
         )
     return out
+
+
+@router.get("/count")
+async def orders_count(
+    org_id: str = Depends(require_org),
+    db: AsyncSession = Depends(get_db),
+    start: str | None = Query(None),
+    end: str | None = Query(None),
+) -> dict:
+    """Total orders matching the date filter — drives the page count."""
+    stmt = select(func.count()).select_from(Order).where(Order.organization_id == org_id)
+    if start:
+        try:
+            stmt = stmt.where(Order.ordered_at >= datetime.fromisoformat(start))
+        except ValueError:
+            pass
+    if end:
+        try:
+            stmt = stmt.where(Order.ordered_at <= datetime.fromisoformat(end))
+        except ValueError:
+            pass
+    return {"total": (await db.scalar(stmt)) or 0}

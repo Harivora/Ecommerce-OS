@@ -42,6 +42,8 @@ export interface OrderDTO {
   discount: number;
   items: number;
   status: string;
+  paymentStatus?: string | null;
+  fulfillmentStatus?: string | null;
   paymentMethod: string | null;
   profit: number;
   channel: string | null;
@@ -167,9 +169,17 @@ export const dataApi = {
     if (end) url += `&end=${encodeURIComponent(end)}`;
     return api.get<OrderDTO[]>(url);
   },
+  ordersCount: (start?: string, end?: string) => {
+    const q = new URLSearchParams();
+    if (start) q.set("start", start);
+    if (end) q.set("end", end);
+    const qs = q.toString();
+    return api.get<{ total: number }>(`/orders/count${qs ? `?${qs}` : ""}`);
+  },
   products: () => api.get<ProductDTO[]>("/products"),
   customers: (limit = 50, offset = 0) =>
     api.get<CustomerDTO[]>(`/customers?limit=${limit}&offset=${offset}`),
+  customersCount: () => api.get<{ total: number }>("/customers/count"),
   customerDetail: (id: string) =>
     api.get<CustomerDetailDTO>(`/customers/${encodeURIComponent(id)}`),
 

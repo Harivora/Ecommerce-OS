@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -54,6 +54,20 @@ async def list_customers(
     ]
 
 
+@router.get("/count")
+async def customers_count(
+    org_id: str = Depends(require_org),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Total customers — drives the page count."""
+    total = await db.scalar(
+        select(func.count()).select_from(Customer).where(
+            Customer.organization_id == org_id
+        )
+    )
+    return {"total": total or 0}
+
+
 @router.get("/{customer_id}", response_model=CustomerDetailOut)
 async def customer_detail(
     customer_id: str,
@@ -74,15 +88,18 @@ async def customer_detail(
     if c is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Customer not found")
 
-    orders: list[Order] = []
+    # Link orders by Shopify customer id (works without email) or by email.
+    conds = []
+    if c.external_id:
+        conds.append(Order.customer_external_id == c.external_id)
     if c.email:
+        conds.append(Order.customer_email == c.email)
+    orders: list[Order] = []
+    if conds:
         orders = (
             await db.scalars(
                 select(Order)
-                .where(
-                    Order.organization_id == org_id,
-                    Order.customer_email == c.email,
-                )
+                .where(Order.organization_id == org_id, or_(*conds))
                 .options(selectinload(Order.items), selectinload(Order.refunds))
                 .order_by(Order.ordered_at.desc().nullslast())
                 .limit(200)

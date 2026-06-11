@@ -456,7 +456,19 @@ class ShopifyConnector(BaseConnector):
         order_count = 0
         refund_count = 0
         order_params = {"status": "any", **(extra_params or {})}
-        
+
+        # sku → product_id so each line item links to its product (drives the
+        # realized Sold/Revenue/Margin on the Products page).
+        product_id_by_sku = {
+            sku: pid
+            for sku, pid in session.execute(
+                select(Product.sku, Product.id).where(
+                    Product.organization_id == org_id, Product.sku.isnot(None)
+                )
+            )
+            if sku
+        }
+
         iterator = iter(self._paginate(
             client, "/orders.json", "orders", order_params
         ))
@@ -500,6 +512,7 @@ class ShopifyConnector(BaseConnector):
                     f"{cust.get('first_name', '')} {cust.get('last_name', '')}".strip() or None
                 )
                 row.customer_email = o.get("email") or cust.get("email")
+                row.customer_external_id = str(cust["id"]) if cust.get("id") else None
                 row.total = float(o.get("total_price") or 0)
                 row.subtotal = float(o.get("subtotal_price") or 0)
                 row.shipping = shipping_total
@@ -507,6 +520,8 @@ class ShopifyConnector(BaseConnector):
                 row.discount = float(o.get("total_discounts") or 0)
                 row.item_count = sum(int(li.get("quantity") or 0) for li in o.get("line_items", []))
                 row.status = _map_order_status(o)
+                row.financial_status = o.get("financial_status")
+                row.fulfillment_status = o.get("fulfillment_status") or "unfulfilled"
                 gateways = o.get("payment_gateway_names") or []
                 row.payment_method = gateways[0] if gateways else None
                 row.channel = "Shopify"
@@ -517,6 +532,7 @@ class ShopifyConnector(BaseConnector):
                     row.items.append(
                         OrderItem(
                             organization_id=org_id,
+                            product_id=product_id_by_sku.get(sku),
                             title=li.get("title"),
                             sku=sku,
                             quantity=int(li.get("quantity") or 0),

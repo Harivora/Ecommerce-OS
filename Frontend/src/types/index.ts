@@ -58,6 +58,8 @@ export interface Order {
   discount: number;
   items: number;
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled" | "refunded";
+  paymentStatus?: string;
+  fulfillmentStatus?: string;
   paymentMethod: string;
   profit: number;
   channel: string;

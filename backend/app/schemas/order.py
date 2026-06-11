@@ -23,6 +23,8 @@ class OrderOut(CamelModel):
     discount: float
     items: int          # item count (frontend field name)
     status: OrderStatus
+    payment_status: str | None = None
+    fulfillment_status: str | None = None
     payment_method: str | None = None
     profit: float = 0.0  # derived per-order
     channel: str | None = None
