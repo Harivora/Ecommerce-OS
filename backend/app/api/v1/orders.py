@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.deps import require_org
 from app.models.order import Order
-from app.schemas.order import OrderOut
+from app.schemas.order import OrderLineItem, OrderOut
 from app.services.profit_engine import compute_order_profit, order_cogs
 
 router = APIRouter()
@@ -66,6 +66,15 @@ async def list_orders(
                 payment_method=o.payment_method,
                 profit=profit,
                 channel=o.channel,
+                line_items=[
+                    OrderLineItem(
+                        title=it.title,
+                        sku=it.sku,
+                        quantity=it.quantity,
+                        unit_price=it.unit_price,
+                    )
+                    for it in o.items
+                ],
             )
         )
     return out

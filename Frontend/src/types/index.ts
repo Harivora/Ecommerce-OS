@@ -61,6 +61,7 @@ export interface Order {
   paymentMethod: string;
   profit: number;
   channel: string;
+  lineItems?: { title: string | null; sku: string | null; quantity: number; unitPrice: number }[];
 }
 
 export interface Customer {

@@ -284,7 +284,7 @@ export default function CustomersPage() {
       {openId && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={closeDetail} />
-          <div className="relative w-full max-w-lg bg-card border-l border-border h-full shadow-2xl flex flex-col animate-slide-in-right overflow-y-auto scrollbar-thin">
+          <div className="relative w-full max-w-lg bg-card border-l border-border h-full shadow-2xl flex flex-col animate-slide-in-right">
             {(() => {
               const base = customers.find((c) => c.id === openId);
               const name = detail?.name ?? base?.name ?? "Customer";
@@ -299,7 +299,7 @@ export default function CustomersPage() {
               return (
                 <>
                   {/* Header */}
-                  <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-card z-10">
+                  <div className="flex items-center justify-between p-6 border-b border-border shrink-0">
                     <div className="flex items-center gap-3">
                       <div className="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
                         {initials}
@@ -321,7 +321,7 @@ export default function CustomersPage() {
                     </button>
                   </div>
 
-                  <div className="p-6 space-y-6 flex-1">
+                  <div className="p-6 space-y-6 flex-1 overflow-y-auto scrollbar-thin">
                     {/* Contact */}
                     <div className="grid grid-cols-1 gap-2 text-xs">
                       <span className="flex items-center gap-2 text-muted-foreground"><Mail className="w-3.5 h-3.5" /> {email || "No email on file"}</span>

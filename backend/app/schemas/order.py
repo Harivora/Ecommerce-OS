@@ -4,6 +4,13 @@ from app.models.enums import OrderStatus
 from app.schemas.common import CamelModel
 
 
+class OrderLineItem(CamelModel):
+    title: str | None = None
+    sku: str | None = None
+    quantity: int = 0
+    unit_price: float = 0.0
+
+
 class OrderOut(CamelModel):
     id: str
     customer: str | None = None
@@ -19,3 +26,4 @@ class OrderOut(CamelModel):
     payment_method: str | None = None
     profit: float = 0.0  # derived per-order
     channel: str | None = None
+    line_items: list[OrderLineItem] = []

@@ -45,6 +45,7 @@ export interface OrderDTO {
   paymentMethod: string | null;
   profit: number;
   channel: string | null;
+  lineItems?: { title: string | null; sku: string | null; quantity: number; unitPrice: number }[];
 }
 
 export interface ProductDTO {
