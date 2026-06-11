@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, String, Text
+from sqlalchemy import BigInteger, DateTime, Enum as SAEnum, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -39,3 +39,5 @@ class Integration(Base):
     credentials_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_sync: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sync_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Resumable customer backfill high-water mark (Shopify since_id).
+    customer_since_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)

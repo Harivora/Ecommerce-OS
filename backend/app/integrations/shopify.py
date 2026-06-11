@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.integrations.base import (
@@ -26,6 +26,7 @@ from app.integrations.base import (
     SyncResult,
 )
 from app.models.customer import Customer
+from app.models.integration import Integration
 from app.models.enums import (
     CustomerSegment,
     IntegrationCategory,
@@ -399,28 +400,18 @@ class ShopifyConnector(BaseConnector):
         extra_params: dict | None = None,
     ) -> int:
         from itertools import islice
-        count = 0
-        
-        iterator = iter(self._paginate(
-            client, "/customers.json", "customers", params=extra_params
-        ))
-        
-        while True:
-            batch = list(islice(iterator, 250))
-            if not batch:
-                break
-                
+
+        def upsert(batch: list[dict]) -> None:
             ext_ids = [str(c["id"]) for c in batch]
             existing = {
-                c.external_id: c
-                for c in session.scalars(
+                row.external_id: row
+                for row in session.scalars(
                     select(Customer).where(
                         Customer.organization_id == org_id,
-                        Customer.external_id.in_(ext_ids)
+                        Customer.external_id.in_(ext_ids),
                     )
                 )
             }
-            
             for c in batch:
                 ext_id = str(c["id"])
                 row = existing.get(ext_id)
@@ -438,13 +429,63 @@ class ShopifyConnector(BaseConnector):
                 row.city = addr.get("city")
                 row.last_order = _parse_dt(c.get("updated_at"))
                 row.segment = self._segment(row.total_orders, row.total_spent)
-                
+
+        count = 0
+
+        # Incremental (scheduled) syncs: only recently-updated customers via cursor pages.
+        if extra_params and extra_params.get("updated_at_min"):
+            iterator = iter(
+                self._paginate(client, "/customers.json", "customers", params=extra_params)
+            )
+            while True:
+                batch = list(islice(iterator, PAGE_LIMIT))
+                if not batch:
+                    break
+                upsert(batch)
+                session.commit()
+                session.expunge_all()
+                if on_page:
+                    on_page(len(batch))
+                count += len(batch)
+            return count
+
+        # Full backfill: resume from a stored since_id high-water mark using Shopify's
+        # stable since_id pagination, so a huge base finishes across runs without ever
+        # restarting from page 1.
+        integ = session.scalar(
+            select(Integration).where(
+                Integration.organization_id == org_id,
+                Integration.provider == "shopify",
+            )
+        )
+        integ_id = integ.id if integ else None
+        cur = int(integ.customer_since_id) if integ and integ.customer_since_id else 0
+        while True:
+            resp = self._get(
+                client, "/customers.json", {"since_id": cur, "limit": PAGE_LIMIT}
+            )
+            if resp.status_code != 200:
+                raise ConnectorError(
+                    f"Shopify /customers.json returned {resp.status_code}: {resp.text[:200]}"
+                )
+            batch = resp.json().get("customers", [])
+            if not batch:
+                break
+            upsert(batch)
+            cur = max(cur, max(int(c["id"]) for c in batch))
+            if integ_id is not None:
+                session.execute(
+                    update(Integration)
+                    .where(Integration.id == integ_id)
+                    .values(customer_since_id=cur)
+                )
             session.commit()
-            session.expunge_all()  # free memory; next batch re-queries
+            session.expunge_all()
+            count += len(batch)
             if on_page:
                 on_page(len(batch))
-            count += len(batch)
-            
+            if len(batch) < PAGE_LIMIT:
+                break
         return count
 
     @staticmethod
