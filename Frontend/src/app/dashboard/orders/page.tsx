@@ -17,6 +17,8 @@ export default function OrdersPage() {
   const [period, setPeriod] = useState<"all" | "today" | "7d" | "30d" | "6m" | "custom">("all");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const range = useMemo<{ start?: string; end?: string }>(() => {
     const now = new Date();
@@ -46,6 +48,24 @@ export default function OrdersPage() {
     return {};
   }, [period, customStart, customEnd]);
 
+  const mapRows = (rows: Awaited<ReturnType<typeof dataApi.orders>>): Order[] =>
+    rows.map((o) => ({
+      id: o.id,
+      customer: o.customer ?? "Guest",
+      email: o.email ?? "",
+      date: o.date ?? "",
+      total: o.total,
+      subtotal: o.subtotal,
+      shipping: o.shipping,
+      tax: o.tax,
+      discount: o.discount,
+      items: o.items,
+      status: o.status as Order["status"],
+      paymentMethod: o.paymentMethod ?? "",
+      profit: o.profit,
+      channel: o.channel ?? "Shopify",
+    }));
+
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -53,25 +73,8 @@ export default function OrdersPage() {
       try {
         const rows = await dataApi.orders(200, 0, range.start, range.end);
         if (!active) return;
-        // Map API DTOs (nullable fields) into the UI Order shape.
-        setOrders(
-          rows.map((o) => ({
-            id: o.id,
-            customer: o.customer ?? "Guest",
-            email: o.email ?? "",
-            date: o.date ?? "",
-            total: o.total,
-            subtotal: o.subtotal,
-            shipping: o.shipping,
-            tax: o.tax,
-            discount: o.discount,
-            items: o.items,
-            status: o.status as Order["status"],
-            paymentMethod: o.paymentMethod ?? "",
-            profit: o.profit,
-            channel: o.channel ?? "Shopify",
-          }))
-        );
+        setOrders(mapRows(rows));
+        setHasMore(rows.length === 200);
       } catch (e) {
         if (active) setError(e instanceof Error ? e.message : "Failed to load orders");
       } finally {
@@ -82,6 +85,19 @@ export default function OrdersPage() {
       active = false;
     };
   }, [range.start, range.end]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const rows = await dataApi.orders(200, orders.length, range.start, range.end);
+      setOrders((prev) => [...prev, ...mapRows(rows)]);
+      setHasMore(rows.length === 200);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load more orders");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Search & Filter logic
   const filteredOrders = orders.filter((o) => {
@@ -272,6 +288,18 @@ export default function OrdersPage() {
           </table>
         </CardContent>
       </Card>
+
+      {hasMore && (
+        <div className="flex justify-center">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="px-5 py-2 rounded-xl border border-border bg-card hover:bg-muted/10 text-xs font-semibold text-foreground disabled:opacity-50"
+          >
+            {loadingMore ? "Loading…" : `Load more (showing ${orders.length})`}
+          </button>
+        </div>
+      )}
 
       {/* Order Detail Modal Drawer */}
       {selectedOrder && (
