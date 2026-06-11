@@ -64,35 +64,6 @@ export default function ProductsPage() {
     return matchesSearch && matchesCategory;
   });
 
-  const toggleStatus = (id: string) => {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          const nextStatusMap: Record<Product["status"], Product["status"]> = {
-            active: "inactive",
-            inactive: "draft",
-            draft: "active",
-          };
-          return { ...p, status: nextStatusMap[p.status] };
-        }
-        return p;
-      })
-    );
-  };
-
-  const simulateRestock = (id: string) => {
-    setProducts((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          const restockAmount = 100;
-          const newStock = p.stock + restockAmount;
-          return { ...p, stock: newStock };
-        }
-        return p;
-      })
-    );
-  };
-
   // Stats calculations
   const totalProducts = products.length;
   const outOfStockCount = products.filter((p) => p.stock === 0).length;
@@ -242,15 +213,9 @@ export default function ProductsPage() {
                       <p className="text-[10px] text-muted-foreground/80 mt-1">{p.sku} • {p.category}</p>
                     </div>
                     {/* Status Badge */}
-                    <button
-                      onClick={() => toggleStatus(p.id)}
-                      className="cursor-pointer"
-                      title="Click to toggle status"
-                    >
-                      <Badge variant={p.status === "active" ? "success" : "outline"} className="text-[9px] uppercase">
-                        {p.status}
-                      </Badge>
-                    </button>
+                    <Badge variant={p.status === "active" ? "success" : "outline"} className="text-[9px] uppercase">
+                      {p.status}
+                    </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4 pt-1 flex-1 flex flex-col justify-between">
@@ -296,8 +261,9 @@ export default function ProductsPage() {
                   <th className="p-4 font-semibold text-right">COGS</th>
                   <th className="p-4 font-semibold text-right">Margin</th>
                   <th className="p-4 font-semibold text-right">Stock</th>
+                  <th className="p-4 font-semibold text-right">Sold</th>
+                  <th className="p-4 font-semibold text-right">Revenue</th>
                   <th className="p-4 font-semibold">Status</th>
-                  <th className="p-4 font-semibold text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -318,23 +284,12 @@ export default function ProductsPage() {
                           <span>{p.stock} units</span>
                         )}
                       </td>
+                      <td className="p-4 text-right text-foreground">{p.sold.toLocaleString()}</td>
+                      <td className="p-4 text-right font-semibold text-foreground">{formatCurrency(p.revenue)}</td>
                       <td className="p-4">
-                        <button
-                          onClick={() => toggleStatus(p.id)}
-                          className="cursor-pointer"
-                        >
-                          <Badge variant={p.status === "active" ? "success" : p.status === "draft" ? "info" : "outline"} className="text-[9px] uppercase">
-                            {p.status}
-                          </Badge>
-                        </button>
-                      </td>
-                      <td className="p-4 text-center">
-                        <button
-                          onClick={() => simulateRestock(p.id)}
-                          className="px-2.5 py-1.5 rounded-lg bg-muted/10 border border-border text-[10px] font-semibold text-foreground hover:bg-primary hover:text-primary-foreground transition-all flex items-center gap-1 inline-flex"
-                        >
-                          Restock
-                        </button>
+                        <Badge variant={p.status === "active" ? "success" : p.status === "draft" ? "info" : "outline"} className="text-[9px] uppercase">
+                          {p.status}
+                        </Badge>
                       </td>
                     </tr>
                   );

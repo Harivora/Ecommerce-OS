@@ -8,6 +8,8 @@ import { dataApi, type CustomerDetailDTO } from "@/lib/data-api";
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
 import type { Customer } from "@/types";
 
+const PAGE_SIZE = 50;
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -15,6 +17,8 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [segmentFilter, setSegmentFilter] = useState("all");
   const [engagementMsg, setEngagementMsg] = useState("");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
   // Customer detail drawer
   const [openId, setOpenId] = useState<string | null>(null);
@@ -40,9 +44,10 @@ export default function CustomersPage() {
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
     (async () => {
       try {
-        const rows = await dataApi.customers(200, 0);
+        const rows = await dataApi.customers(PAGE_SIZE, (page - 1) * PAGE_SIZE);
         if (!active) return;
         setCustomers(
           rows.map((c) => ({
@@ -67,6 +72,10 @@ export default function CustomersPage() {
     return () => {
       active = false;
     };
+  }, [page]);
+
+  useEffect(() => {
+    dataApi.customersCount().then((r) => setTotal(r.total)).catch(() => setTotal(0));
   }, []);
 
   // Search & Filter
@@ -93,6 +102,16 @@ export default function CustomersPage() {
   const avgLTV = customers.length
     ? Math.round(customers.reduce((acc, c) => acc + c.ltv, 0) / customers.length)
     : 0;
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const pager = (
+    <div className="flex items-center justify-between gap-2 px-1">
+      <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1 || loading} className="px-4 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-foreground hover:bg-muted/10 disabled:opacity-40 disabled:cursor-not-allowed">← Previous</button>
+      <span className="text-xs font-semibold text-muted-foreground">Page {page} of {totalPages}<span className="text-muted-foreground/60"> · {total.toLocaleString()} customers</span></span>
+      <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages || loading} className="px-4 py-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-foreground hover:bg-muted/10 disabled:opacity-40 disabled:cursor-not-allowed">Next →</button>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -133,7 +152,7 @@ export default function CustomersPage() {
             </div>
           </CardHeader>
           <CardContent className="pt-1">
-            <div className="text-2xl font-bold text-foreground">{customers.length}</div>
+            <div className="text-2xl font-bold text-foreground">{total.toLocaleString()}</div>
           </CardContent>
         </Card>
         <Card className="border-border bg-card">
@@ -206,80 +225,68 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {/* Registry Grid List */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredCustomers.map((c) => {
-          const initials = c.name.split(" ").map(n => n[0]).join("");
-          return (
-            <Card
-              key={c.id}
-              onClick={() => openCustomer(c.id)}
-              className="overflow-hidden border-border bg-card flex flex-col justify-between hover:border-primary/40 hover:shadow-lg transition-all cursor-pointer"
-            >
-              <div className="p-4 space-y-4">
-                {/* Header: Avatar, Name, Email, Segment */}
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
-                      {initials}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-sm text-foreground leading-tight">{c.name}</h3>
-                      <span className="text-[10px] text-muted-foreground block mt-0.5">{c.email}</span>
-                    </div>
-                  </div>
-                  {/* Segment Tag */}
-                  <span className={`px-2 py-0.5 rounded-full border text-[9px] uppercase font-bold ${
-                    c.segment === "vip" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
-                    c.segment === "at-risk" ? "bg-red-500/10 text-red-500 border-red-500/20" :
-                    c.segment === "new" ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
-                    "bg-muted/10 text-muted-foreground border-border"
-                  }`}>
-                    {c.segment === "at-risk" ? "At Risk" : c.segment}
-                  </span>
-                </div>
+      {pager}
 
-                {/* Parameter Grid (4 fields) */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="bg-muted/10 border border-border/40 rounded-xl p-2.5">
-                    <span className="text-[9px] text-muted-foreground block font-semibold uppercase">Total Spent</span>
-                    <span className="font-bold text-xs text-foreground block mt-0.5">{formatCurrency(c.totalSpent)}</span>
-                  </div>
-                  <div className="bg-muted/10 border border-border/40 rounded-xl p-2.5">
-                    <span className="text-[9px] text-muted-foreground block font-semibold uppercase">LTV</span>
-                    <span className="font-bold text-xs text-emerald-400 block mt-0.5">{formatCurrency(c.ltv)}</span>
-                  </div>
-                  <div className="bg-muted/10 border border-border/40 rounded-xl p-2.5">
-                    <span className="text-[9px] text-muted-foreground block font-semibold uppercase">Orders</span>
-                    <span className="font-bold text-xs text-foreground block mt-0.5">{c.totalOrders}</span>
-                  </div>
-                  <div className="bg-muted/10 border border-border/40 rounded-xl p-2.5">
-                    <span className="text-[9px] text-muted-foreground block font-semibold uppercase">Last Order</span>
-                    <span className="font-bold text-xs text-foreground block mt-0.5">{c.lastOrder}</span>
-                  </div>
-                </div>
-              </div>
+      {/* Customer table */}
+      <Card className="overflow-hidden border-border bg-card">
+        <CardContent className="p-0 overflow-x-auto">
+          <table className="w-full text-xs text-left min-w-[760px]">
+            <thead>
+              <tr className="bg-muted/10 text-muted-foreground border-b border-border">
+                <th className="p-4 font-semibold text-[10px] tracking-wider">CUSTOMER</th>
+                <th className="p-4 font-semibold text-[10px] tracking-wider">LOCATION</th>
+                <th className="p-4 font-semibold text-[10px] tracking-wider">SEGMENT</th>
+                <th className="p-4 font-semibold text-center text-[10px] tracking-wider">ORDERS</th>
+                <th className="p-4 font-semibold text-right text-[10px] tracking-wider">AMOUNT SPENT</th>
+                <th className="p-4 font-semibold text-right text-[10px] tracking-wider">LTV</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filteredCustomers.map((c) => {
+                const initials = c.name.split(" ").map((n) => n[0]).join("").slice(0, 2);
+                return (
+                  <tr key={c.id} onClick={() => openCustomer(c.id)} className="hover:bg-muted/5 transition-colors cursor-pointer">
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[11px] shrink-0">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-semibold text-foreground truncate">{c.name}</div>
+                          {c.email && <div className="text-[10px] text-muted-foreground truncate">{c.email}</div>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 text-muted-foreground">{c.city || "—"}</td>
+                    <td className="p-4">
+                      <span className={`inline-block px-2 py-0.5 rounded-full border text-[9px] uppercase font-bold ${
+                        c.segment === "vip" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
+                        c.segment === "at-risk" ? "bg-red-500/10 text-red-500 border-red-500/20" :
+                        c.segment === "new" ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
+                        "bg-muted/10 text-muted-foreground border-border"
+                      }`}>
+                        {c.segment === "at-risk" ? "At Risk" : c.segment}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center font-semibold text-foreground">{c.totalOrders}</td>
+                    <td className="p-4 text-right font-semibold text-foreground">{formatCurrency(c.totalSpent)}</td>
+                    <td className="p-4 text-right font-semibold text-emerald-400">{formatCurrency(c.ltv)}</td>
+                  </tr>
+                );
+              })}
+              {filteredCustomers.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="text-center py-8 text-muted-foreground text-sm bg-card">
+                    No customers match your filter criteria.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
 
-              {/* Footer Metadata */}
-              <div className="p-3 bg-muted/5 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Phone className="w-3.5 h-3.5 text-muted-foreground/60" />
-                  {c.phone}
-                </span>
-                <span className="flex items-center gap-1 font-medium text-foreground">
-                  <MapPin className="w-3.5 h-3.5 text-muted-foreground/60" />
-                  {c.city}
-                </span>
-              </div>
-            </Card>
-          );
-        })}
-        {filteredCustomers.length === 0 && (
-          <div className="col-span-full text-center py-8 text-muted-foreground text-sm bg-card border border-border rounded-xl">
-            No customers match your filter criteria.
-          </div>
-        )}
-      </div>
+      {pager}
 
       {/* Customer Detail Drawer */}
       {openId &&
