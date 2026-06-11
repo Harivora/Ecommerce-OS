@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Search, Eye, User, Tag, CreditCard, X, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { dataApi } from "@/lib/data-api";
@@ -288,8 +289,9 @@ export default function OrdersPage() {
       {pager}
 
       {/* Order Detail Modal Drawer */}
-      {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {selectedOrder &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
@@ -435,8 +437,9 @@ export default function OrdersPage() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </div>
   );
 }
