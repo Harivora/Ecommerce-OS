@@ -32,4 +32,9 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.sync.sync_all_integrations",
         "schedule": float(settings.sync_interval_minutes * 60),
     },
+    # Fill the dashboard within minutes even while a big backfill is still running.
+    "recompute-all-profit": {
+        "task": "app.tasks.profit.recompute_all_profit",
+        "schedule": 300.0,  # every 5 minutes
+    },
 }

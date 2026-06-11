@@ -160,8 +160,12 @@ export const dataApi = {
   profitBreakdown: () => api.get<ProfitBreakdownItem[]>("/dashboard/profit-breakdown"),
 
   // Resources
-  orders: (limit = 50, offset = 0) =>
-    api.get<OrderDTO[]>(`/orders?limit=${limit}&offset=${offset}`),
+  orders: (limit = 50, offset = 0, start?: string, end?: string) => {
+    let url = `/orders?limit=${limit}&offset=${offset}`;
+    if (start) url += `&start=${encodeURIComponent(start)}`;
+    if (end) url += `&end=${encodeURIComponent(end)}`;
+    return api.get<OrderDTO[]>(url);
+  },
   products: () => api.get<ProductDTO[]>("/products"),
   customers: (limit = 50, offset = 0) =>
     api.get<CustomerDTO[]>(`/customers?limit=${limit}&offset=${offset}`),

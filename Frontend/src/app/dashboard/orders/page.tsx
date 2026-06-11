@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Search, Eye, User, Tag, CreditCard, X, ArrowUpRight, Ban, CheckCircle, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { dataApi } from "@/lib/data-api";
@@ -14,12 +14,44 @@ export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [period, setPeriod] = useState<"all" | "today" | "7d" | "30d" | "6m" | "custom">("all");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+
+  const range = useMemo<{ start?: string; end?: string }>(() => {
+    const now = new Date();
+    const iso = (d: Date) => d.toISOString();
+    const back = (days: number) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - days);
+      return d;
+    };
+    if (period === "today") {
+      const s = new Date();
+      s.setHours(0, 0, 0, 0);
+      return { start: iso(s) };
+    }
+    if (period === "7d") return { start: iso(back(7)) };
+    if (period === "30d") return { start: iso(back(30)) };
+    if (period === "6m") {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 6);
+      return { start: iso(d) };
+    }
+    if (period === "custom")
+      return {
+        start: customStart || undefined,
+        end: customEnd ? `${customEnd}T23:59:59` : undefined,
+      };
+    return {};
+  }, [period, customStart, customEnd]);
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
     (async () => {
       try {
-        const rows = await dataApi.orders(200, 0);
+        const rows = await dataApi.orders(200, 0, range.start, range.end);
         if (!active) return;
         // Map API DTOs (nullable fields) into the UI Order shape.
         setOrders(
@@ -49,7 +81,7 @@ export default function OrdersPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [range.start, range.end]);
 
   // Search & Filter logic
   const filteredOrders = orders.filter((o) => {
@@ -104,6 +136,47 @@ export default function OrdersPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-9 pr-4 py-2 rounded-xl bg-card border border-border focus:border-primary/50 text-sm outline-none transition-all placeholder:text-muted-foreground/60 text-foreground"
         />
+      </div>
+
+      {/* Date range filter */}
+      <div className="flex flex-wrap items-center gap-2">
+        {([
+          ["today", "Today"],
+          ["7d", "7 days"],
+          ["30d", "1 month"],
+          ["6m", "6 months"],
+          ["all", "All time"],
+          ["custom", "Custom"],
+        ] as const).map(([val, label]) => (
+          <button
+            key={val}
+            onClick={() => setPeriod(val)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+              period === val
+                ? "bg-primary/20 text-primary border-primary/30"
+                : "bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted/10"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        {period === "custom" && (
+          <>
+            <input
+              type="date"
+              value={customStart}
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="px-2 py-1.5 rounded-lg bg-card border border-border text-xs text-foreground"
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <input
+              type="date"
+              value={customEnd}
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="px-2 py-1.5 rounded-lg bg-card border border-border text-xs text-foreground"
+            />
+          </>
+        )}
       </div>
 
       {/* Status Tab list */}

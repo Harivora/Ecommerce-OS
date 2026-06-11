@@ -1,6 +1,8 @@
 """Orders list with per-order profit (subtotal − COGS − refunds)."""
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,12 +23,23 @@ async def list_orders(
     db: AsyncSession = Depends(get_db),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    start: str | None = Query(None, description="ISO lower bound on order date"),
+    end: str | None = Query(None, description="ISO upper bound on order date"),
 ) -> list[OrderOut]:
+    stmt = select(Order).where(Order.organization_id == org_id)
+    if start:
+        try:
+            stmt = stmt.where(Order.ordered_at >= datetime.fromisoformat(start))
+        except ValueError:
+            pass
+    if end:
+        try:
+            stmt = stmt.where(Order.ordered_at <= datetime.fromisoformat(end))
+        except ValueError:
+            pass
     orders = (
         await db.scalars(
-            select(Order)
-            .where(Order.organization_id == org_id)
-            .options(selectinload(Order.items), selectinload(Order.refunds))
+            stmt.options(selectinload(Order.items), selectinload(Order.refunds))
             .order_by(Order.ordered_at.desc().nullslast())
             .limit(limit)
             .offset(offset)
