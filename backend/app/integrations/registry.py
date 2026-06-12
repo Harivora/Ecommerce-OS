@@ -7,6 +7,8 @@ connectors are built (Phase 2+).
 from __future__ import annotations
 
 from app.integrations.base import BaseConnector, IntegrationMeta
+from app.integrations.google_ads import GoogleAdsConnector
+from app.integrations.meta_ads import MetaAdsConnector
 from app.integrations.nas_backup import NasBackupConnector
 from app.integrations.shiprocket import ShiprocketConnector
 from app.integrations.shopify import ShopifyConnector
@@ -16,33 +18,13 @@ from app.models.enums import IntegrationCategory
 CONNECTORS: dict[str, BaseConnector] = {
     ShopifyConnector.meta.provider: ShopifyConnector(),
     ShiprocketConnector.meta.provider: ShiprocketConnector(),
+    MetaAdsConnector.meta.provider: MetaAdsConnector(),
+    GoogleAdsConnector.meta.provider: GoogleAdsConnector(),
     NasBackupConnector.meta.provider: NasBackupConnector(),
 }
 
 # Manual-entry integrations (no connector yet) shown in the catalog.
 _MANUAL_META: list[IntegrationMeta] = [
-    IntegrationMeta(
-        provider="meta",
-        name="Meta Ads",
-        description="Attribute campaigns, impressions, and ad spend MoM.",
-        icon="Megaphone",
-        category=IntegrationCategory.ads,
-        phase=2,
-        features=["Spend tracking", "Campaign ROAS analytics", "CPA breakdown"],
-        has_connector=False,
-        credential_fields=["access_token"],
-    ),
-    IntegrationMeta(
-        provider="google_ads",
-        name="Google Ads",
-        description="Track search and shopping campaign attribution.",
-        icon="Megaphone",
-        category=IntegrationCategory.ads,
-        phase=2,
-        features=["ROAS tracking", "PMax campaign attribution", "Keyword cost insights"],
-        has_connector=False,
-        credential_fields=["access_token"],
-    ),
     IntegrationMeta(
         provider="razorpay",
         name="Razorpay",
