@@ -73,7 +73,10 @@ def sync_all_integrations() -> dict:
     with SyncSessionLocal() as session:
         integrations = session.scalars(
             select(Integration).where(
-                Integration.status == ConnectionStatus.connected,
+                # Retry errored integrations too, so a transient failure self-heals.
+                Integration.status.in_(
+                    [ConnectionStatus.connected, ConnectionStatus.error]
+                ),
                 Integration.credentials_encrypted.isnot(None),
             )
         ).all()
