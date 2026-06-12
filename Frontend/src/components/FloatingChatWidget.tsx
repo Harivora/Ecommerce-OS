@@ -2,7 +2,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { MessageSquare, X, Send, Sparkles, Bot, User } from "lucide-react";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { aiApi } from "@/lib/ai-api";
 
 interface Message {
   id: string;
@@ -10,17 +11,6 @@ interface Message {
   content: string;
   timestamp: Date;
 }
-
-const presetResponses: Record<string, string> = {
-  "how is my profit margin today?":
-    "Your net profit margin today is **30.1%**, which is **2.4% higher** than last week's average. This is primarily driven by strong sales of the *Organic Vitamin C Serum* which carries a high margin of **76.6%**.",
-  "why did profit drop last week?":
-    "Profit dropped by **4.2%** last week due to two main factors:\n1. A **15% increase** in average CPA on Meta Ads (from ₹310 to ₹356).\n2. An increase in the **RTO (Return to Origin) rate** to **6.8%** on Cash on Delivery orders in the North region.",
-  "show me low stock items":
-    "Here are the items requiring immediate attention:\n\n* **Smart Fitness Band V2**: **0 units** left (Restock required immediately)\n* **Wireless Earbuds Pro**: **12 units** left (Run-rate indicates 2 days of cover)\n\nWould you like me to draft a purchase order for these?",
-  "which channel is performing best?":
-    "Currently, **Shopify organic** and **Google Ads** are performing best. Google Ads shows a ROAS of **4.1x** compared to Meta Ads at **3.2x**.",
-};
 
 const suggestedQuestions = [
   "How is my profit margin today?",
@@ -41,6 +31,7 @@ export default function FloatingChatWidget() {
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [convId, setConvId] = useState<string | undefined>(undefined);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -54,12 +45,13 @@ export default function FloatingChatWidget() {
   }, [messages, isOpen, isTyping]);
 
   const handleSend = async (text: string) => {
-    if (!text.trim()) return;
+    const trimmed = text.trim();
+    if (!trimmed || isTyping) return;
 
     const userMsg: Message = {
       id: `msg-${Date.now()}`,
       role: "user",
-      content: text,
+      content: trimmed,
       timestamp: new Date(),
     };
 
@@ -67,29 +59,29 @@ export default function FloatingChatWidget() {
     setInputValue("");
     setIsTyping(true);
 
-    // Simulate AI response delay
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-
-    const normalizedText = text.toLowerCase().trim().replace(/[?]$/, "");
-    let aiContent =
-      "I'm analyzing that data point for you. Currently, your store shows positive profit momentum (+12.5% MoM). Let me know if you would like a detailed breakdown of a specific channel!";
-
-    for (const key in presetResponses) {
-      if (normalizedText.includes(key) || key.includes(normalizedText)) {
-        aiContent = presetResponses[key];
-        break;
-      }
+    try {
+      const res = await aiApi.chat(trimmed, convId);
+      setConvId(res.conversationId);
+      setMessages((prev) => [
+        ...prev,
+        { id: res.reply.id, role: "assistant", content: res.reply.content, timestamp: new Date() },
+      ]);
+    } catch (e) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-ai-${Date.now()}`,
+          role: "assistant",
+          content:
+            e instanceof Error
+              ? e.message
+              : "I couldn't reach the AI service. Make sure your Anthropic API key is set in Settings → AI.",
+          timestamp: new Date(),
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
     }
-
-    const aiMsg: Message = {
-      id: `msg-ai-${Date.now()}`,
-      role: "assistant",
-      content: aiContent,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, aiMsg]);
-    setIsTyping(false);
   };
 
   return (
