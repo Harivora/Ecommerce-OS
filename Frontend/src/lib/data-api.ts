@@ -117,6 +117,31 @@ export interface AdCampaignDTO {
   cpa: number;
 }
 
+export interface LandingCostSkuDTO {
+  sku: string;
+  productName: string | null;
+  currentCost: number;
+  effectiveFrom: string;
+  entries: number;
+}
+
+export interface LandingCostEntryDTO {
+  id: string;
+  sku: string;
+  cost: number;
+  effectiveFrom: string;
+  note: string | null;
+  createdBy: string | null;
+  createdAt: string | null;
+}
+
+export interface LandingCostCreate {
+  sku: string;
+  cost: number;
+  effectiveFrom?: string | null;
+  note?: string | null;
+}
+
 export interface TeamMemberDTO {
   id: string;
   name: string;
@@ -185,6 +210,15 @@ export const dataApi = {
 
   // Ad spend
   ads: () => api.get<AdCampaignDTO[]>("/ads"),
+
+  // Product landing costs (effective-dated COGS per SKU)
+  landingCosts: () => api.get<LandingCostSkuDTO[]>("/costs"),
+  landingCostHistory: (sku: string) =>
+    api.get<LandingCostEntryDTO[]>(`/costs/${encodeURIComponent(sku)}`),
+  createLandingCost: (body: LandingCostCreate) =>
+    api.post<LandingCostEntryDTO>("/costs", body),
+  deleteLandingCost: (id: string) =>
+    api.delete<void>(`/costs/${encodeURIComponent(id)}`),
 
   // Team
   team: () => api.get<TeamMemberDTO[]>("/team"),

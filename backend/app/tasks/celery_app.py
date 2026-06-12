@@ -10,7 +10,7 @@ celery_app = Celery(
     "commerce_os",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["app.tasks.sync", "app.tasks.profit"],
+    include=["app.tasks.sync", "app.tasks.profit", "app.tasks.landing_costs"],
 )
 
 celery_app.conf.update(

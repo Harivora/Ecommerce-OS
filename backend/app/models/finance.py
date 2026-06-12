@@ -13,6 +13,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -87,6 +88,48 @@ class PaymentFee(Base):
     )
     settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     date: Mapped[date_type | None] = mapped_column(Date, index=True, nullable=True)
+
+
+class ProductLandingCost(Base):
+    """Effective-dated landed cost per SKU — manual, admin-entered.
+
+    The real cost of getting a product to the warehouse, which Shopify usually
+    doesn't hold (its inventory cost is often 0). Each change is a **new row**;
+    rows are never updated in place, so the full price history is preserved.
+
+    The cost applied to an order is the row with the greatest ``effective_from``
+    that is ``<= the order's date`` (the earliest row also covers any orders
+    dated before it — so the very first cost you enter backfills every existing
+    order of that SKU). This is what keeps **past orders locked** to the cost in
+    effect on their order date while **new orders** pick up the latest, and lets
+    the profit engine recompute deterministically. Resolution lives in
+    ``app.services.landing_costs``.
+    """
+
+    __tablename__ = "product_landing_costs"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id", "sku", "effective_from",
+            name="uq_landing_cost_org_sku_date",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: uuid.uuid4().hex
+    )
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    sku: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
+    cost: Mapped[float] = mapped_column(Float, default=0.0)
+    # The date this cost takes effect. Orders on/after it use this cost (until a
+    # later-dated row supersedes it). Stored as a plain date.
+    effective_from: Mapped[date_type] = mapped_column(Date, index=True, nullable=False)
+    note: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class ProfitMetric(Base):

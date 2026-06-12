@@ -632,6 +632,7 @@ export const navigationItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "LayoutDashboard" },
   { label: "Orders", href: "/dashboard/orders", icon: "ShoppingCart" },
   { label: "Products", href: "/dashboard/products", icon: "Package" },
+  { label: "Product Costs", href: "/dashboard/costs", icon: "Coins" },
   { label: "Customers", href: "/dashboard/customers", icon: "Users" },
   { label: "Analytics", href: "/dashboard/analytics", icon: "BarChart3" },
   { label: "Integrations", href: "/dashboard/integrations", icon: "Plug" },

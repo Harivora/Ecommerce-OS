@@ -7,6 +7,7 @@ from app.api.v1 import (
     ads,
     ai,
     auth,
+    costs,
     customers,
     dashboard,
     export,
@@ -32,6 +33,7 @@ api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboar
 api_router.include_router(export.router, prefix="/export", tags=["export"])
 api_router.include_router(orders.router, prefix="/orders", tags=["orders"])
 api_router.include_router(products.router, prefix="/products", tags=["products"])
+api_router.include_router(costs.router, prefix="/costs", tags=["costs"])
 api_router.include_router(customers.router, prefix="/customers", tags=["customers"])
 api_router.include_router(ads.router, prefix="/ads", tags=["ads"])
 api_router.include_router(shipping.router, prefix="/shipping", tags=["shipping"])

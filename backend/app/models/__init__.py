@@ -7,7 +7,13 @@ from app.core.database import Base
 from app.models.ai import AIConversation, AIMessage
 from app.models.auth import PasswordResetToken
 from app.models.customer import Customer
-from app.models.finance import AdSpend, PaymentFee, ProfitMetric, ShippingCost
+from app.models.finance import (
+    AdSpend,
+    PaymentFee,
+    ProductLandingCost,
+    ProfitMetric,
+    ShippingCost,
+)
 from app.models.integration import Integration
 from app.models.order import Order, OrderItem, Refund
 from app.models.organization import Organization
@@ -29,6 +35,7 @@ __all__ = [
     "AdSpend",
     "ShippingCost",
     "PaymentFee",
+    "ProductLandingCost",
     "ProfitMetric",
     "AIConversation",
     "AIMessage",
