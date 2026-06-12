@@ -158,3 +158,28 @@ async def generate_reply(
     )
     text = next((b.text for b in response.content if b.type == "text"), "")
     return text, response.usage.output_tokens
+
+
+async def generate_title(first_message: str, api_key: str | None = None) -> str | None:
+    """Ask Claude for a short conversation title. Returns None on any failure."""
+    key = api_key or settings.anthropic_api_key
+    if not key:
+        return None
+    try:
+        from anthropic import AsyncAnthropic
+
+        client = AsyncAnthropic(api_key=key)
+        response = await client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=24,
+            system=(
+                "Generate a concise 3-6 word title for this e-commerce analytics "
+                "question. Reply with ONLY the title — no quotes, no punctuation."
+            ),
+            messages=[{"role": "user", "content": first_message[:500]}],
+        )
+        title = next((b.text for b in response.content if b.type == "text"), "")
+        title = title.strip().strip('"').strip()
+        return title[:80] or None
+    except Exception:
+        return None

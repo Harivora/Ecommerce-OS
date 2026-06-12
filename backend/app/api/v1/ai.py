@@ -206,6 +206,12 @@ async def chat(
         context, history, payload.message, api_key=api_key
     )
 
+    # New conversation → let Claude name it (best-effort; falls back to the snippet).
+    if not payload.conversation_id:
+        ai_title = await ai_analyst.generate_title(payload.message, api_key=api_key)
+        if ai_title:
+            conv.title = ai_title
+
     assistant_msg = AIMessage(
         conversation_id=conv.id,
         role=MessageRole.assistant,
