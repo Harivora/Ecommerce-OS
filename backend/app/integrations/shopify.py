@@ -12,7 +12,7 @@ import logging
 import re
 import time
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 import httpx
@@ -27,6 +27,10 @@ from app.integrations.base import (
 )
 from app.models.customer import Customer
 from app.models.integration import Integration
+from app.services.landing_costs import (
+    load_history as load_landing_history,
+    resolve_cost as resolve_landing_cost,
+)
 from app.models.enums import (
     CustomerSegment,
     IntegrationCategory,
@@ -280,9 +284,12 @@ class ShopifyConnector(BaseConnector):
             # Orders BEFORE customers: the dashboard/orders depend on orders,
             # and large stores can have hundreds of thousands of customers.
             cost_by_sku = self._build_cost_map(session, organization_id)
+            # Manual landed costs override Shopify's (often-0) inventory cost,
+            # resolved per order date so each order gets the cost in effect then.
+            landing_history = load_landing_history(session, organization_id)
             try:
                 orders, refunds = self._sync_orders(
-                    client, session, organization_id, cost_by_sku,
+                    client, session, organization_id, cost_by_sku, landing_history,
                     on_page=tag("orders"), extra_params=extra,
                 )
             except ConnectorError as exc:
@@ -513,6 +520,7 @@ class ShopifyConnector(BaseConnector):
         session: Session,
         org_id: str,
         cost_by_sku: dict[str, float],
+        landing_history: dict[str, list[tuple[date, float]]] | None = None,
         on_page: Callable[[int], None] | None = None,
         extra_params: dict | None = None,
     ) -> tuple[int, int]:
@@ -591,8 +599,19 @@ class ShopifyConnector(BaseConnector):
                 row.channel = "Shopify"
                 row.ordered_at = _parse_dt(o.get("created_at"))
 
+                order_date = row.ordered_at.date() if row.ordered_at else None
                 for li in o.get("line_items", []):
                     sku = li.get("sku")
+                    # Manual landed cost (by order date) wins; else Shopify cost.
+                    unit_cost = 0.0
+                    if sku:
+                        landed = resolve_landing_cost(
+                            (landing_history or {}).get(sku, []), order_date
+                        )
+                        unit_cost = (
+                            landed if landed is not None
+                            else cost_by_sku.get(sku, 0.0)
+                        )
                     row.items.append(
                         OrderItem(
                             organization_id=org_id,
@@ -601,7 +620,7 @@ class ShopifyConnector(BaseConnector):
                             sku=sku,
                             quantity=int(li.get("quantity") or 0),
                             unit_price=float(li.get("price") or 0),
-                            unit_cost=cost_by_sku.get(sku, 0.0) if sku else 0.0,
+                            unit_cost=unit_cost,
                         )
                     )
 
