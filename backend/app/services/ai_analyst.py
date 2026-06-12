@@ -7,6 +7,7 @@ caching so repeated turns in a conversation reuse the prefix.
 """
 from __future__ import annotations
 
+import logging
 from datetime import date
 
 from sqlalchemy import case, func, select
@@ -16,6 +17,8 @@ from app.core.config import settings
 from app.models.finance import ProfitMetric, ShippingCost
 from app.models.order import Order, OrderItem
 from app.models.product import Product
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PERSONA = (
     "You are the AI CFO for a direct-to-consumer e-commerce brand. You help the "
@@ -140,7 +143,9 @@ async def generate_reply(
     # Imported lazily so the app boots without the dependency at hand.
     from anthropic import AsyncAnthropic
 
-    client = AsyncAnthropic(api_key=key)
+    # Bounded timeout so a slow/unreachable Anthropic call can't hang the request
+    # (an unbounded hang means no response → no CORS header → browser "CORS error").
+    client = AsyncAnthropic(api_key=key, timeout=30.0, max_retries=1)
 
     system = [
         {"type": "text", "text": SYSTEM_PERSONA},
@@ -150,12 +155,21 @@ async def generate_reply(
     messages = [{"role": m["role"], "content": m["content"]} for m in history]
     messages.append({"role": "user", "content": user_message})
 
-    response = await client.messages.create(
-        model=settings.anthropic_model,
-        max_tokens=settings.ai_max_tokens,
-        system=system,
-        messages=messages,
-    )
+    try:
+        response = await client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=settings.ai_max_tokens,
+            system=system,
+            messages=messages,
+        )
+    except Exception as exc:  # timeout / network / model / key — fail gracefully
+        logger.warning("AI reply generation failed: %s", exc)
+        return (
+            "I couldn't generate an answer just now — the AI service was slow or "
+            "unreachable, or your Anthropic key/model was rejected. Please try again, "
+            "and verify your API key in Settings → AI.",
+            0,
+        )
     text = next((b.text for b in response.content if b.type == "text"), "")
     return text, response.usage.output_tokens
 
@@ -168,7 +182,7 @@ async def generate_title(first_message: str, api_key: str | None = None) -> str 
     try:
         from anthropic import AsyncAnthropic
 
-        client = AsyncAnthropic(api_key=key)
+        client = AsyncAnthropic(api_key=key, timeout=15.0, max_retries=0)
         response = await client.messages.create(
             model=settings.anthropic_model,
             max_tokens=24,
