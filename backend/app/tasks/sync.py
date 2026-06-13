@@ -41,6 +41,15 @@ def sync_integration(self, integration_id: str) -> dict:
             if integration.last_sync
             else None
         )
+        # Clear a stale error up front: valid stored credentials + an about-to-run
+        # sync means the integration is "connected". A large store (100k+ orders /
+        # customers) can take many minutes to fully backfill, and we don't want the
+        # card stuck on a previous run's error the whole time. A genuine auth /
+        # connection failure in the sync below flips it right back to error.
+        if integration.sync_error or integration.status == ConnectionStatus.error:
+            integration.status = ConnectionStatus.connected
+            integration.sync_error = None
+            session.commit()
         try:
             result = connector.sync(session, org_id, credentials, since=since)
             integration.status = ConnectionStatus.connected
