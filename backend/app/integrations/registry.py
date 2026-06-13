@@ -10,6 +10,7 @@ from app.integrations.base import BaseConnector, IntegrationMeta
 from app.integrations.google_ads import GoogleAdsConnector
 from app.integrations.meta_ads import MetaAdsConnector
 from app.integrations.nas_backup import NasBackupConnector
+from app.integrations.nimbuspost import NimbusPostConnector
 from app.integrations.shiprocket import ShiprocketConnector
 from app.integrations.shopify import ShopifyConnector
 from app.models.enums import IntegrationCategory
@@ -18,6 +19,7 @@ from app.models.enums import IntegrationCategory
 CONNECTORS: dict[str, BaseConnector] = {
     ShopifyConnector.meta.provider: ShopifyConnector(),
     ShiprocketConnector.meta.provider: ShiprocketConnector(),
+    NimbusPostConnector.meta.provider: NimbusPostConnector(),
     MetaAdsConnector.meta.provider: MetaAdsConnector(),
     GoogleAdsConnector.meta.provider: GoogleAdsConnector(),
     NasBackupConnector.meta.provider: NasBackupConnector(),
