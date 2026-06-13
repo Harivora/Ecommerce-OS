@@ -146,8 +146,8 @@ export default function ProductsPage() {
         </Card>
       </div>
 
-      {/* Search & Views */}
-      <div className="flex flex-col md:flex-row gap-4 md:items-center justify-between">
+      {/* Search + view toggle */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -161,43 +161,44 @@ export default function ProductsPage() {
         </div>
 
         {/* View toggle */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="flex flex-wrap gap-2">
-            {categories.map((c) => {
-              const label = c === "all" ? "All" : c.charAt(0).toUpperCase() + c.slice(1);
-              return (
-                <button
-                  key={c}
-                  onClick={() => setCategoryFilter(c)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
-                    categoryFilter === c
-                      ? "bg-primary/20 text-primary border-primary/30"
-                      : "bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted/10"
-                  }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex bg-muted/10 border border-border rounded-xl p-1 shrink-0">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`p-1.5 rounded-lg transition-all ${viewMode === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              title="Grid View"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-1.5 rounded-lg transition-all ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
-              title="List View"
-            >
-              <List className="w-4 h-4" />
-            </button>
-          </div>
+        <div className="flex bg-muted/10 border border-border rounded-xl p-1 shrink-0 self-start sm:self-auto">
+          <button
+            onClick={() => setViewMode("grid")}
+            className={`p-1.5 rounded-lg transition-all ${viewMode === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            title="Grid View"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setViewMode("list")}
+            className={`p-1.5 rounded-lg transition-all ${viewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            title="List View"
+          >
+            <List className="w-4 h-4" />
+          </button>
         </div>
+      </div>
+
+      {/* Category filter — own row that scrolls horizontally, so a long category
+          list (or one very long category name) can never widen the whole page. */}
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+        {categories.map((c) => {
+          const label = c === "all" ? "All" : c.charAt(0).toUpperCase() + c.slice(1);
+          return (
+            <button
+              key={c}
+              onClick={() => setCategoryFilter(c)}
+              title={label}
+              className={`shrink-0 max-w-[160px] truncate px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                categoryFilter === c
+                  ? "bg-primary/20 text-primary border-primary/30"
+                  : "bg-card border-border text-muted-foreground hover:text-foreground hover:bg-muted/10"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Main Grid View */}
